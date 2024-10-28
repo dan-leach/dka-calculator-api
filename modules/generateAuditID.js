@@ -1,5 +1,4 @@
 const mysql = require("mysql2/promise");
-const keys = require("../private/keys.json");
 
 const permittedChars = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
 
@@ -13,8 +12,8 @@ async function generateAuditID() {
   try {
     const connection = await mysql.createConnection({
       host: "localhost",
-      user: keys.select.user,
-      password: keys.select.password,
+      user: process.env.selectUser,
+      password: process.env.selectKey,
       database: "dkacalcu_dka_database",
     });
     while (!isUnique) {

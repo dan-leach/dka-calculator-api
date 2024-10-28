@@ -1,3 +1,16 @@
+/**
+ * @module DKA_Calculator_API The DKA Calculator API application setup and routing.
+ *
+ * @description This Express server provides various API endpoints including the main calculate route, and the secondary update and sodium-osmo routes.
+ *
+ * @requires express
+ * @requires cors - To prevent CORS block
+ * @requires body-parser - Library to parse request body from JSON
+ * @requires crypto - Library to perform hashing
+ * @requires express-validator - Library to perform validation
+ * @requires ./modules/validate - Rules for validating requests
+ */
+
 const express = require("express");
 var cors = require("cors");
 const bodyParser = require("body-parser");
@@ -8,8 +21,7 @@ const {
   updateRules,
   calculateRules,
   sodiumOsmoRules,
-} = require("./modules/validateAndSanitize");
-const keys = require("./private/keys.json");
+} = require("./modules/validate");
 
 const app = express();
 app.use(cors());
@@ -26,13 +38,18 @@ app.set("trust proxy", 3);
 const rehashPatientHash = (patientHash) =>
   crypto
     .createHash("sha256")
-    .update(patientHash + keys.salt)
+    .update(patientHash + process.env.salt)
     .digest("hex");
 
 /**
- * Any browser GET requests redirects to the main website.
- * @param {Object} req - The request object.
- * @param {Object} res - The response object.
+ * @route GET /
+ * @summary Redirects users to the main website.
+ *
+ * @description This route handles any GET requests made to the API root. Instead of providing an API response,
+ * it advises users to visit the main website. The response includes HTML content with a clickable link to the website.
+ * This is useful for guiding users who may be accessing the API directly in a browser.
+ *
+ * @returns {string} 200 - HTML content that redirects the user to an external website.
  */
 app.get("/", (req, res) => {
   res.send(
@@ -40,17 +57,47 @@ app.get("/", (req, res) => {
   );
 });
 
+/**
+ * @route GET /config
+ * @summary Provides the configuration settings to the client.
+ *
+ * @description This route sends the contents of the server's config file to the client as a JSON response.
+ * The config file contains various settings that the client might need, such as API endpoints or feature flags.
+ *
+ * @returns {Object} 200 - JSON object containing the server's configuration.
+ */
 app.get("/config", (req, res) => {
   const config = require("./config.json");
   res.json(config);
 });
 
 /**
- * Primary route - for calculating variables and entering new episodes into the database.
- * @name POST /calculate
- * @function
- * @param {Object} req - The request object.
- * @param {Object} res - The response object.
+ * Primary route for calculating variables and creating new episode entries in the database.
+ *
+ * @route POST /calculate
+ * @summary Processes a calculation request with various checks and inserts a new entry into the database.
+ *
+ * @description This endpoint receives a POST request with validated patient and episode data, performs necessary
+ * calculations, checks data against predefined rules, and saves it in the database. The endpoint:
+ * - Validates the request data using `calculateRules` and `validateRequest` middlewares.
+ * - Checks if the patient's weight is within limits or if an override is allowed.
+ * - Calculates derived values based on input data and checks for errors.
+ * - Hashes sensitive patient data and retrieves IMD (Index of Multiple Deprivation) decile data based on postcode.
+ * - Generates a unique audit ID and stores the calculated data in the database.
+ *
+ * @requires ./modules/calculateVariables - Module for calculating variables.
+ * @requires ./modules/generateAuditID - Module for generating unique audit IDs.
+ * @requires ./modules/insertData - Module for database insertion of calculation data.
+ * @requires ./modules/getImdDecile - Module to retrieve IMD decile based on patient postcode.
+ * @requires ./modules/checkWeightWithinLimit - Module to verify if patient weight is within limits.
+ *
+ * @param {object} req - The request object, with validated data and IP address.
+ * @param {object} req.body - Contains patient data fields.
+ * @param {object} res - The response object to send calculation details or errors.
+ *
+ * @returns {object} 200 - JSON object with `auditID` and calculated `variables`.
+ * @returns {object} 400 - JSON object with errors if validation or calculation checks fail.
+ * @returns {object} 500 - JSON object with error message if a server error occurs.
  */
 app.post("/calculate", calculateRules, validateRequest, async (req, res) => {
   try {
@@ -125,11 +172,28 @@ app.post("/calculate", calculateRules, validateRequest, async (req, res) => {
 });
 
 /**
- * Secondary route - for updating preventableFactors data.
- * @name POST /update
- * @function
- * @param {Object} req - The request object.
- * @param {Object} res - The response object.
+ * @route POST /update
+ * @summary Updates episode data with validated fields and verifies patient identity through audit ID and hash matching.
+ *
+ * @description This endpoint receives a POST request to update patient episode data in the database, with validation
+ * of patient identity and additional checks:
+ * - Validates request data with `updateRules` and `validateRequest`.
+ * - Confirms if the audit ID exists in the database and logs failed attempts if not.
+ * - Verifies the patient's NHS number and date of birth through hash matching.
+ * - Constructs a cerebral oedema object if applicable and stores the updated data.
+ *
+ * @requires ./modules/insertData - Module to insert or update data in the database.
+ * @requires ./modules/updateCheck - Module to check and retrieve patient data based on audit ID.
+ *
+ * @param {object} req - The request object, with validated update data.
+ * @param {object} req.body - Contains patient data fields, including audit ID and patient hash.
+ * @param {object} res - The response object for sending update results or error messages.
+ *
+ * @returns {string} 200 - Success message confirming the update.
+ * @returns {string} 404 - Error message if audit ID is not found in the database.
+ * @returns {string} 406 - Error message if the episode was created without providing an NHS number.
+ * @returns {string} 401 - Error message if submitted patient hash does not match the stored patient hash.
+ * @returns {object} 500 - Error message if a server error occurs.
  */
 app.post("/update", updateRules, validateRequest, async (req, res) => {
   try {
@@ -202,11 +266,25 @@ app.post("/update", updateRules, validateRequest, async (req, res) => {
 });
 
 /**
- * Secondary route - for calculating corrected sodium and effective osmolality.
- * @name POST /update
- * @function
- * @param {Object} req - The request object.
- * @param {Object} res - The response object.
+ * @route POST /sodium-osmo
+ * @summary Calculates and stores sodium and osmolality metrics for patient data.
+ *
+ * @description This endpoint receives a POST request with sodium and glucose levels, performs calculations,
+ * and updates the database with the computed values:
+ * - Validates the request data with `sodiumOsmoRules` and `validateRequest`.
+ * - Computes corrected sodium and effective osmolality using `calculateCorrectedSodium` and `calculateEffectiveOsmolality`.
+ * - Stores the results in the database along with the client IP.
+ * - Returns the calculated values to the client.
+ *
+ * @requires ./modules/sodiumOsmo - Module for corrected sodium and effective osmolality calculations.
+ * @requires ./modules/insertData - Module to insert calculated data into the database.
+ *
+ * @param {object} req - The request object, with validated data.
+ * @param {object} req.body - Contains patient data fields including sodium and glucose levels.
+ * @param {object} res - The response object to send calculation results or errors.
+ *
+ * @returns {object} 200 - JSON object with calculated `correctedSodium` and `effectiveOsmolality`.
+ * @returns {object} 500 - JSON object with error message if a server error occurs.
  */
 app.post("/sodium-osmo", sodiumOsmoRules, validateRequest, async (req, res) => {
   try {
@@ -242,17 +320,28 @@ app.post("/sodium-osmo", sodiumOsmoRules, validateRequest, async (req, res) => {
 });
 
 /**
- * Default route for handling incorrect API routes.
- * @param {Object} req - The request object.
- * @param {Object} res - The response object.
+ * @route USE *
+ * @summary Handles incorrect or undefined API routes.
+ *
+ * @description This middleware is used as a catch-all for undefined routes, returning a 500 status code and an error message indicating that the API route is incorrect.
+ * This is useful for guiding clients when they access a non-existent route.
+ *
+ * @returns {Object} 500 - JSON object containing an error message.
  */
 app.use("*", (req, res) => {
   res.status(400).json("Incorrect API route");
 });
 
 /**
- * Starts the server on port 3000.
- * @function
+ * @function listen
+ * @summary Starts the Express server.
+ *
+ * @description This function starts the Express server on the specified port (3000).
+ * Once the server is running, it listens for incoming requests and logs a message to the console indicating the server's status.
+ *
+ * @param {number} 3000 - The port number the server listens on.
+ *
+ * @returns {void}
  */
 app.listen(3000, () => {
   console.log("Server is running on port 3000");

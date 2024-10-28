@@ -1,5 +1,4 @@
 const mysql = require("mysql2/promise");
-const keys = require("../private/keys.json");
 
 /**
  * Inserts audit data into the database.
@@ -22,8 +21,8 @@ async function insertCalculateData(
   try {
     const connection = await mysql.createConnection({
       host: "localhost",
-      user: keys.insert.user,
-      password: keys.insert.password,
+      user: process.env.insertUser,
+      password: process.env.insertKey,
       database: "dkacalcu_dka_database",
     });
 
@@ -93,8 +92,8 @@ async function insertUpdateData(data, cerebralOedema, clientIP) {
   try {
     const connection = await mysql.createConnection({
       host: "localhost",
-      user: keys.insert.user,
-      password: keys.insert.password,
+      user: process.env.insertUser,
+      password: process.env.insertKey,
       database: "dkacalcu_dka_database",
     });
 
@@ -135,8 +134,8 @@ async function insertSodiumOsmoData(data, calculations, clientIP) {
   try {
     const connection = await mysql.createConnection({
       host: "localhost",
-      user: keys.insert.user,
-      password: keys.insert.password,
+      user: process.env.insertUser,
+      password: process.env.insertKey,
       database: "dkacalcu_dka_database",
     });
 
