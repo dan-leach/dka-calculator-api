@@ -1,6 +1,6 @@
 {
   "appName": "Paediatric DKA Calculator",
-  "underDevelopment": true,
+  "underDevelopment": false,
   "author": {
     "name": "Dan Leach",
     "url": "https://danleach.uk",
@@ -86,7 +86,8 @@
       "length": 6
     },
     "protocolEndDatetime": {
-      "withinPastYears": 1
+      "withinPastYears": 1,
+      "withinFutureMinutes": 60
     }
   },
   "severity": {

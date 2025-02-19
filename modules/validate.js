@@ -348,7 +348,10 @@ const updateRules = [
         );
       }
 
-      const maxDatetime = new Date(now.getTime());
+      const maxDatetime = new Date(
+        now.getTime() +
+          config.validation.protocolEndDatetime.withinFutureMinutes * 60 * 1000
+      );
 
       if (datetime > maxDatetime) {
         throw new Error(`Protocol end datetime cannot be in the future.`);
