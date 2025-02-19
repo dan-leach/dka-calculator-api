@@ -7,7 +7,7 @@ See also:
 - [Client changelog](https://github.com/dan-leach/dka-calculator/blob/main/changelog.md)
 - [Contributors](https://github.com/dan-leach/dka-calculator/blob/main/contributors.md) to the project.
 
-## [v1.0] - 11:30 19/02/2025
+## [v1.0] - 2025-02-19 11:30
 
 Initial version of the API as a separate Express.js application.
 
