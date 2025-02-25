@@ -9,6 +9,7 @@
  * @requires crypto - Library to perform hashing
  * @requires express-validator - Library to perform validation
  * @requires ./modules/validate - Rules for validating requests
+ * @requires ./modules/handleError - Error logging and notifications
  */
 
 const express = require("express");
@@ -22,7 +23,7 @@ const {
   calculateRules,
   sodiumOsmoRules,
 } = require("./modules/validate");
-
+const { handleError } = require("./modules/handleError");
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
@@ -67,8 +68,18 @@ app.get("/", (req, res) => {
  * @returns {Object} 200 - JSON object containing the server's configuration.
  */
 app.get("/config", (req, res) => {
-  const config = require("./config.json");
-  res.json(config);
+  try {
+    const config = require("./config.json");
+    res.json(config);
+  } catch (error) {
+    handleError(
+      error,
+      500,
+      "/config",
+      "Failed to load configuration file",
+      res
+    );
+  }
 });
 
 /**
@@ -114,9 +125,18 @@ app.post("/calculate", calculateRules, validateRequest, async (req, res) => {
 
     //check the weight is within limits or override is true
     const check = checkWeightWithinLimit(data);
-    if (!check.pass) {
-      res.status(400).json({ errors: [{ msg: check.error }] });
-      return;
+    try {
+      if (!check.pass) {
+        throw new Error(check.error);
+      }
+    } catch (error) {
+      handleError(
+        error,
+        400,
+        "/calculate",
+        "Check weight within limit failed",
+        res
+      );
     }
 
     //limit decimal age to 2 decimal places after checkWeighWithinLimit
@@ -127,9 +147,18 @@ app.post("/calculate", calculateRules, validateRequest, async (req, res) => {
 
     //perform the calculations and check for errors
     const calculations = calculateVariables(data);
-    if (calculations.errors.length) {
-      res.status(400).json({ errors: calculations.errors });
-      return;
+    try {
+      if (calculations.errors.length) {
+        throw new Error(calculations.errors.join(", "));
+      }
+    } catch (error) {
+      handleError(
+        error,
+        400,
+        "/calculate",
+        "Failed to perform calculations",
+        res
+      );
     }
 
     //set undefined optional values to null
@@ -166,8 +195,13 @@ app.post("/calculate", calculateRules, validateRequest, async (req, res) => {
       calculations,
     });
   } catch (error) {
-    console.error(error);
-    res.status(500).json(error.message);
+    handleError(
+      error,
+      500,
+      "/calculate",
+      "Failed to perform calculations",
+      res
+    );
   }
 });
 
@@ -260,8 +294,7 @@ app.post("/update", updateRules, validateRequest, async (req, res) => {
 
     res.json("Audit data update complete");
   } catch (error) {
-    console.error(error);
-    res.status(500).json(error.message);
+    handleError(error, 500, "/update", "Failed to perform update", res);
   }
 });
 
@@ -314,8 +347,13 @@ app.post("/sodium-osmo", sodiumOsmoRules, validateRequest, async (req, res) => {
     //return the calculations to the client
     res.status(200).json(calculations);
   } catch (error) {
-    console.error(error);
-    res.status(500).json(error.message);
+    handleError(
+      error,
+      500,
+      "/sodium-osmo",
+      "Failed to perform calculations",
+      res
+    );
   }
 });
 

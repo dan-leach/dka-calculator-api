@@ -1,4 +1,5 @@
 const mysql = require("mysql2/promise");
+const config = require("../config");
 
 /**
  * Inserts audit data into the database.
@@ -28,7 +29,7 @@ async function insertCalculateData(
 
     // Prepare SQL statement
     const sql = `
-      INSERT INTO tbl_data_v2 (
+      INSERT INTO ${config.api.tables.calculate} (
         legalAgreement, patientAge, patientSex, protocolStartDatetime, pH, bicarbonate, glucose, ketones, weight, weightLimitOverride, use2SD,
         shockPresent, insulinRate, preExistingDiabetes, insulinDeliveryMethod, episodeType, region, centre, ethnicGroup, ethnicSubgroup,
         preventableFactors, imdDecile, auditID, patientHash, clientDatetime, clientUseragent, clientIP, appVersion, calculations
@@ -72,7 +73,6 @@ async function insertCalculateData(
       throw new Error("Audit data could not be logged: No rows affected");
     }
   } catch (error) {
-    console.error(error);
     throw new Error(`Audit data could not be logged: ${error.message}`);
   } finally {
     try {
@@ -98,7 +98,7 @@ async function insertUpdateData(data, cerebralOedema, clientIP) {
     });
 
     // Prepare SQL statement for update
-    const sql = `INSERT INTO tbl_update_v2 (
+    const sql = `INSERT INTO ${config.api.tables.update} (
         auditID, protocolEndDatetime, preExistingDiabetes, preventableFactors, cerebralOedema, clientUseragent, clientIP, appVersion
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `;
@@ -119,7 +119,6 @@ async function insertUpdateData(data, cerebralOedema, clientIP) {
       throw new Error("Audit data could not be updated: No rows affected");
     }
   } catch (error) {
-    console.error(error);
     throw new Error(`Audit data could not be updated: ${error.message}`);
   } finally {
     try {
@@ -140,7 +139,7 @@ async function insertSodiumOsmoData(data, calculations, clientIP) {
     });
 
     // Prepare SQL statement for update
-    const sql = `INSERT INTO tbl_sodiumOsmo_v2 (
+    const sql = `INSERT INTO ${config.api.tables.sodiumOsmo} (
         sodium, glucose, calculations, clientUseragent, clientIP, appVersion
       ) VALUES (?, ?, ?, ?, ?, ?)
     `;
@@ -159,7 +158,6 @@ async function insertSodiumOsmoData(data, calculations, clientIP) {
       throw new Error("Data log could not be updated: No rows affected");
     }
   } catch (error) {
-    console.error(error);
     throw new Error(`Data log could not be updated: ${error.message}`);
   } finally {
     try {

@@ -159,10 +159,9 @@ const calculateVariables = (data) => {
         if (severityMap.hasOwnProperty(severity.val)) {
           return severityMap[severity.val];
         } else {
-          errors.push({
-            msg: `Unable to select deficit percentage using severity rating [${severity.val}]`,
-          });
-          return false;
+          throw new Error(
+            `Unable to select deficit percentage using severity rating [${severity.val}]`
+          );
         }
       };
       const val = calculateVal();
@@ -211,10 +210,9 @@ const calculateVariables = (data) => {
         if (capsMap.hasOwnProperty(percentage.val)) {
           return capsMap[percentage.val];
         } else {
-          errors.push({
-            msg: `Unable to select deficit volume cap using deficit percentage [${percentage.val}].`,
-          });
-          return false;
+          throw new Error(
+            `Unable to select deficit volume cap using deficit percentage [${percentage.val}].`
+          );
         }
       };
       const capped = calculateCapped();
@@ -238,10 +236,9 @@ const calculateVariables = (data) => {
             percentage.val
           }% deficit)`;
         } else {
-          errors.push({
-            msg: `Unable to generate deficit volume limit string using deficit percentage [${percentage.val}].`,
-          });
-          return false;
+          throw new Error(
+            `Unable to generate deficit volume limit string using deficit percentage [${percentage.val}].`
+          );
         }
       };
 
@@ -475,10 +472,9 @@ const calculateVariables = (data) => {
       if (insulinCapsMap.hasOwnProperty(data.insulinRate)) {
         return insulinCapsMap[data.insulinRate];
       } else {
-        errors.push({
-          msg: `Unable to select insulin rate capped using insulin rate [${data.insulinRate}].`,
-        });
-        return false;
+        throw new Error(
+          `Unable to select insulin rate capped using insulin rate [${data.insulinRate}].`
+        );
       }
     };
     const capped = calculateCapped();
