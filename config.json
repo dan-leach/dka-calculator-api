@@ -1,6 +1,6 @@
 {
   "appName": "Paediatric DKA Calculator",
-  "underDevelopment": true,
+  "underDevelopment": false,
   "author": {
     "name": "Dan Leach",
     "url": "https://danleach.uk",
@@ -25,13 +25,14 @@
       "main": "https://github.com/dan-leach/dka-calculator-api",
       "changelog": "https://github.com/dan-leach/dka-calculator-api/blob/main/changelog.md"
     },
-    "url": "https://dev-api.dka-calculator.co.uk/",
+    "url": "https://api.dka-calculator.co.uk/",
     "timeoutDuration": 15000,
     "showConsole": true,
     "tables": {
-      "calculate": "tbl_data_dev",
-      "update": "tbl_update_dev",
-      "sodiumOsmo": "tbl_sodiumOsmo_dev"
+      "calculate": "tbl_data_v2",
+      "update": "tbl_update_v2",
+      "sodiumOsmo": "tbl_sodiumOsmo_v2",
+      "decrypt": "tbl_decrypt"
     }
   },
   "client": {

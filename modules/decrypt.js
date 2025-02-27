@@ -80,8 +80,8 @@ async function decryptTable(decryptID) {
   // Fetch encrypted rows
   const query =
     decryptID === "all"
-      ? "SELECT id, episodeType, auditID, appVersion, patientHash, legalAgreement, region, centre, clientDatetime, serverDatetime, clientUseragent, clientIP, encryptedData FROM tbl_data_dev"
-      : "SELECT id, episodeType, auditID, appVersion, patientHash, legalAgreement, region, centre, clientDatetime, serverDatetime, clientUseragent, clientIP, encryptedData FROM tbl_data_dev WHERE auditID = ?";
+      ? `SELECT id, episodeType, auditID, appVersion, patientHash, legalAgreement, region, centre, clientDatetime, serverDatetime, clientUseragent, clientIP, encryptedData FROM ${config.api.tables.calculate}`
+      : `SELECT id, episodeType, auditID, appVersion, patientHash, legalAgreement, region, centre, clientDatetime, serverDatetime, clientUseragent, clientIP, encryptedData FROM ${config.api.tables.calculate} WHERE auditID = ?`;
 
   const [rows] = await connection.execute(
     query,
@@ -131,9 +131,9 @@ async function decryptTable(decryptID) {
       continue;
     }
 
-    // Insert decrypted data into tbl_decrypt_dev
+    // Insert decrypted data into tbl_decrypt
     await connection.execute(
-      "INSERT INTO tbl_decrypt_dev (id, episodeType, auditID, appVersion, patientHash, legalAgreement, region, centre, clientDatetime, serverDatetime, clientUseragent, clientIP, decryptedData) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      `INSERT INTO ${config.api.tables.decrypt} (id, episodeType, auditID, appVersion, patientHash, legalAgreement, region, centre, clientDatetime, serverDatetime, clientUseragent, clientIP, decryptedData) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         episodeType,

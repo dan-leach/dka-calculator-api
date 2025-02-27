@@ -1,4 +1,5 @@
 const mysql = require("mysql2/promise");
+const config = require("../config");
 
 /**
  * Fetches the auditID and patientHash from the database.
@@ -13,8 +14,7 @@ async function updateCheck(auditID) {
       password: process.env.selectKey,
       database: "dkacalcu_dka_database",
     });
-    const sql =
-      "SELECT auditID, patientHash FROM tbl_data_v2 WHERE auditID = ?";
+    const sql = `SELECT auditID, patientHash FROM ${config.api.tables.calculate} WHERE auditID = ?`;
 
     const [rows] = await connection.execute(sql, [auditID]);
 

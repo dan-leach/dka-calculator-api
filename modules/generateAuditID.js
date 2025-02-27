@@ -1,4 +1,5 @@
 const mysql = require("mysql2/promise");
+const config = require("../config");
 
 const permittedChars = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
 
@@ -19,7 +20,7 @@ async function generateAuditID() {
     while (!isUnique) {
       auditID = generateRandomID(6, permittedChars);
       const [rows] = await connection.execute(
-        "SELECT * FROM tbl_data_v2 WHERE auditID = ?",
+        `SELECT * FROM ${config.api.tables.calculate} WHERE auditID = ?`,
         [auditID]
       );
 
