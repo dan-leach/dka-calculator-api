@@ -37,6 +37,7 @@ function handleError(
   // Log the error with a timestamp for debugging
   delete error.statusCode;
   const errorTime = new Date().toISOString();
+
   console.error(errorTime, `${route} ${statusCode}`, [info.join(" | ")], error);
 
   const config = require("../config.json");
@@ -63,6 +64,8 @@ function handleError(
       html
     );
   }
+  
+  console.error(" ");
 }
 
 /**

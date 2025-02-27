@@ -1,23 +1,22 @@
 const mysql = require("mysql2/promise");
 const config = require("../config");
+const e = require("express");
 
 /**
  * Inserts audit data into the database.
  * @param {Object} data - The submitted data to be inserted.
- * @param {string} imdDecile - IMD Decile value.
+ * @param {Object} encryptedData - The encrypted data and decryption variables.
  * @param {string} auditID - Audit ID.
  * @param {string} patientHash - Patient hash.
  * @param {string} clientIP - Client IP address.
- * @param {Object} calculations - Output of calculateVariables.
  * @throws {Error} If an error occurs during the database operation.
  */
 async function insertCalculateData(
   data,
-  imdDecile,
+  encryptedData,
   auditID,
   patientHash,
-  clientIP,
-  calculations
+  clientIP
 ) {
   try {
     const connection = await mysql.createConnection({
@@ -30,43 +29,22 @@ async function insertCalculateData(
     // Prepare SQL statement
     const sql = `
       INSERT INTO ${config.api.tables.calculate} (
-        legalAgreement, patientAge, patientSex, protocolStartDatetime, pH, bicarbonate, glucose, ketones, weight, weightLimitOverride, use2SD,
-        shockPresent, insulinRate, preExistingDiabetes, insulinDeliveryMethod, episodeType, region, centre, ethnicGroup, ethnicSubgroup,
-        preventableFactors, imdDecile, auditID, patientHash, clientDatetime, clientUseragent, clientIP, appVersion, calculations
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        encryptedData, legalAgreement, episodeType, region, centre, auditID, patientHash, clientDatetime, clientUseragent, clientIP, appVersion) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     // Execute SQL statement
     const [result] = await connection.execute(sql, [
+      encryptedData,
       data.legalAgreement,
-      data.patientAge,
-      data.patientSex,
-      data.protocolStartDatetime,
-      data.pH,
-      data.bicarbonate,
-      data.glucose,
-      data.ketones,
-      data.weight,
-      data.weightLimitOverride,
-      data.use2SD,
-      data.shockPresent,
-      data.insulinRate,
-      data.preExistingDiabetes,
-      data.insulinDeliveryMethod,
       data.episodeType,
       data.region,
       data.centre,
-      data.ethnicGroup,
-      data.ethnicSubgroup,
-      data.preventableFactors,
-      imdDecile,
       auditID,
       patientHash,
       data.clientDatetime,
       data.clientUseragent,
       clientIP,
       data.appVersion,
-      calculations,
     ]);
 
     if (result.affectedRows === 0) {

@@ -119,6 +119,7 @@ app.post("/calculate", calculateRules, validateRequest, async (req, res) => {
     const {
       checkWeightWithinLimit,
     } = require("./modules/checkWeightWithinLimit");
+    const { encrypt } = require("./modules/encrypt");
 
     //get the validated data
     const data = matchedData(req);
@@ -179,14 +180,36 @@ app.post("/calculate", calculateRules, validateRequest, async (req, res) => {
     //generate a new unique auditID
     const auditID = await generateAuditID();
 
+    //encrypt the data
+    const encryptedData = encrypt({
+      protocolStartDatetime: data.protocolStartDatetime,
+      patientAge: data.patientAge,
+      patientSex: data.patientSex,
+      pH: data.pH,
+      weight: data.weight,
+      calculations: calculations,
+      bicarbonate: data.bicarbonate,
+      glucose: data.glucose,
+      ketones: data.ketones,
+      weightLimitOverride: data.weightLimitOverride,
+      use2SD: data.use2SD,
+      shockPresent: data.shockPresent,
+      insulinRate: data.insulinRate,
+      preExistingDiabetes: data.preExistingDiabetes,
+      insulinDeliveryMethod: data.insulinDeliveryMethod,
+      ethnicGroup: data.ethnicGroup,
+      ethnicSubgroup: data.ethnicSubgroup,
+      preventableFactors: data.preventableFactors,
+      imdDecile: imdDecile,
+    });
+
     //insert the data into the database
     await insertCalculateData(
       data,
-      imdDecile,
+      encryptedData,
       auditID,
       patientHash,
-      clientIP,
-      calculations
+      clientIP
     );
 
     //respond to the client with the auditID and the calculations
@@ -202,6 +225,18 @@ app.post("/calculate", calculateRules, validateRequest, async (req, res) => {
       "Failed to perform calculations",
       res
     );
+  }
+});
+
+app.get("/decrypt", async (req, res) => {
+  try {
+    const { decrypt } = require("./modules/decrypt");
+
+    decrypt(req.query.decryptID);
+
+    res.json("Decrypt run");
+  } catch (error) {
+    handleError(error, 500, "/decrypt", "Failed to decrypt", res);
   }
 });
 
