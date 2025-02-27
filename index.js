@@ -101,6 +101,7 @@ app.get("/config", (req, res) => {
  * @requires ./modules/insertData - Module for database insertion of calculation data.
  * @requires ./modules/getImdDecile - Module to retrieve IMD decile based on patient postcode.
  * @requires ./modules/checkWeightWithinLimit - Module to verify if patient weight is within limits.
+ * @requires ./modules/encrypt - Module for encrypting calculated data before storage.
  *
  * @param {object} req - The request object, with validated data and IP address.
  * @param {object} req.body - Contains patient data fields.
@@ -228,6 +229,24 @@ app.post("/calculate", calculateRules, validateRequest, async (req, res) => {
   }
 });
 
+/**
+ * Route for decrypting previously stored data.
+ *
+ * @route GET /decrypt
+ * @summary Decrypts stored data based on a provided decrypt ID.
+ *
+ * @description This endpoint receives a GET request with a `decryptID` query parameter.
+ * It uses the decryption module to process the request and return a success response.
+ *
+ * @requires ./modules/decrypt - Module for decrypting stored data.
+ *
+ * @param {object} req - The request object containing query parameters.
+ * @param {string} req.query.decryptID - The ID of the encrypted data to be decrypted.
+ * @param {object} res - The response object to send the decryption status.
+ *
+ * @returns {object} 200 - JSON object confirming decryption was attempted.
+ * @returns {object} 500 - JSON object with error message if decryption fails.
+ */
 app.get("/decrypt", async (req, res) => {
   try {
     const { decrypt } = require("./modules/decrypt");

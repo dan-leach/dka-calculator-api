@@ -1,3 +1,16 @@
+/**
+ * Encryption module for securing sensitive data before storage.
+ *
+ * @module encrypt
+ * @summary Provides AES encryption for data and RSA encryption for AES keys.
+ *
+ * @description This module encrypts sensitive data using AES-256-GCM and securely encrypts the AES key using an RSA public key.
+ *
+ * @requires crypto - Node.js built-in module for cryptographic operations.
+ * @requires process.env.rsaPublicKey - Environment variable containing the RSA public key in base64 format.
+ *
+ * @exports encrypt - Function that encrypts data using AES-256-GCM and secures the AES key with RSA encryption.
+ */
 const crypto = require("crypto");
 
 // Load RSA Public Key (for encrypting AES keys)
@@ -6,7 +19,12 @@ const rsaPublicKey = crypto.createPublicKey({
   format: "pem",
 });
 
-// AES Encryption Function
+/**
+ * Encrypts data using AES-256-GCM.
+ *
+ * @param {object} data - The data to be encrypted.
+ * @returns {object} - The encrypted data, AES key, IV, and authentication tag.
+ */
 function encryptDataWithAES(data) {
   const key = crypto.randomBytes(32); // 256-bit AES key
   const iv = crypto.randomBytes(16); // Initialization Vector
@@ -17,7 +35,12 @@ function encryptDataWithAES(data) {
   return { encrypted, key, iv: iv.toString("hex"), authTag };
 }
 
-// RSA Encryption for AES Key
+/**
+ * Encrypts the AES key using RSA public encryption.
+ *
+ * @param {Buffer} aesKey - The AES key to be encrypted.
+ * @returns {string} - The RSA-encrypted AES key in base64 format.
+ */
 function encryptAESKeyWithRSA(aesKey) {
   return crypto
     .publicEncrypt(
@@ -31,7 +54,12 @@ function encryptAESKeyWithRSA(aesKey) {
     .toString("base64");
 }
 
-// Encrypt Sensitive Columns Before Storing in Database
+/**
+ * Encrypts data and secures the AES key using RSA encryption.
+ *
+ * @param {object} data - The data to be encrypted.
+ * @returns {object} - Object containing encrypted data, encrypted AES key, IV, and authentication tag.
+ */
 function encrypt(data) {
   const { encrypted, key, iv, authTag } = encryptDataWithAES(data);
   const encryptedKey = encryptAESKeyWithRSA(key);
