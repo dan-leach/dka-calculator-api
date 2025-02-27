@@ -7,11 +7,12 @@ See also:
 - [Client changelog](https://github.com/dan-leach/dka-calculator/blob/main/changelog.md)
 - [Contributors](https://github.com/dan-leach/dka-calculator/blob/main/contributors.md) to the project.
 
-## [v1.1] - tbc
+## [v1.1] - 2025-02-27 13:45
 
 ### Added
 
 - Error handling module including notifications to admin email
+- Encryption of audit data stored in database
 
 ## [v1.0] - 2025-02-19 11:30
 

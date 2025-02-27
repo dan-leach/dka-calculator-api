@@ -38,7 +38,7 @@
   "client": {
     "url": "https://dka-calculator.co.uk",
     "sodiumOsmoUrl": "https://dka-calculator.co.uk/sodium-osmo",
-    "version": "2.0",
+    "version": "2.1",
     "repo": {
       "main": "https://github.com/dan-leach/dka-calculator",
       "changelog": "https://github.com/dan-leach/dka-calculator/blob/main/changelog.md"

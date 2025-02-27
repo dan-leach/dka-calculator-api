@@ -14,6 +14,7 @@
  */
 const mysql = require("mysql2/promise");
 const crypto = require("crypto");
+const config = require("../config");
 
 // Load RSA Private Key (for decrypting AES keys)
 const rsaPrivateKey = crypto.createPrivateKey({
