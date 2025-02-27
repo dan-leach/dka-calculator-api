@@ -272,6 +272,7 @@ app.get("/decrypt", async (req, res) => {
  *
  * @requires ./modules/insertData - Module to insert or update data in the database.
  * @requires ./modules/updateCheck - Module to check and retrieve patient data based on audit ID.
+ * @requires ./modules/encrypt - Module for encrypting calculated data before storage.
  *
  * @param {object} req - The request object, with validated update data.
  * @param {object} req.body - Contains patient data fields, including audit ID and patient hash.
@@ -287,6 +288,7 @@ app.post("/update", updateRules, validateRequest, async (req, res) => {
   try {
     const { insertUpdateData } = require("./modules/insertData");
     const { updateCheck } = require("./modules/updateCheck");
+    const { encrypt } = require("./modules/encrypt");
 
     //get the submitted data that passed validation
     const data = matchedData(req);
@@ -336,15 +338,19 @@ app.post("/update", updateRules, validateRequest, async (req, res) => {
     //get the IP address of the client request
     const clientIP = req.ip;
 
-    //build the cerebralOedema object
-    const cerebralOedema = {
-      concern: data.cerebralOedemaConcern,
-      imaging: data.cerebralOedemaImaging,
-      treatment: data.cerebralOedemaTreatment,
-    };
+    const encryptedData = encrypt({
+      protocolStartDatetime: data.protocolEndDatetime,
+      preExistingDiabetes: data.preExistingDiabetes,
+      preventableFactors: data.preventableFactors,
+      cerebralOedema: {
+        concern: data.cerebralOedemaConcern,
+        imaging: data.cerebralOedemaImaging,
+        treatment: data.cerebralOedemaTreatment,
+      },
+    });
 
     //update the database with new data
-    await insertUpdateData(data, cerebralOedema, clientIP);
+    await insertUpdateData(data, encryptedData, clientIP);
 
     res.json("Audit data update complete");
   } catch (error) {

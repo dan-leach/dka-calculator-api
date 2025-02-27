@@ -113,10 +113,10 @@ async function decryptTable(decryptID) {
     let parsedData;
     try {
       parsedData = JSON.parse(encryptedData);
-    } catch (e) {
+    } catch (error) {
       console.error(
         `Failed to parse encryptedData for row ID ${id}:`,
-        e.message
+        error.message
       );
       continue;
     }

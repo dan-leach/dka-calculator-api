@@ -1,6 +1,5 @@
 const mysql = require("mysql2/promise");
 const config = require("../config");
-const e = require("express");
 
 /**
  * Inserts audit data into the database.
@@ -62,11 +61,12 @@ async function insertCalculateData(
 }
 
 /**
- * Updates the preventableFactors audit data in the database.
- * @param {Object} data - The submitted data including the auditID of the session and the updated preventableFactors array to be inserted.
+ * Inserts retrospective audit data in the database.
+ * @param {Object} data - The submitted data including the auditID.
+ * @param {Object} encryptedData - The encrypted audit data and decryption variables.
  * @throws {Error} If an error occurs during the database operation.
  */
-async function insertUpdateData(data, cerebralOedema, clientIP) {
+async function insertUpdateData(data, encryptedData, clientIP) {
   try {
     const connection = await mysql.createConnection({
       host: "localhost",
@@ -77,17 +77,14 @@ async function insertUpdateData(data, cerebralOedema, clientIP) {
 
     // Prepare SQL statement for update
     const sql = `INSERT INTO ${config.api.tables.update} (
-        auditID, protocolEndDatetime, preExistingDiabetes, preventableFactors, cerebralOedema, clientUseragent, clientIP, appVersion
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        encryptedData, auditID, clientUseragent, clientIP, appVersion
+      ) VALUES (?, ?, ?, ?, ?)
     `;
 
     // Execute SQL statement
     const [result] = await connection.execute(sql, [
+      encryptedData,
       data.auditID,
-      data.protocolEndDatetime,
-      data.preExistingDiabetes,
-      data.preventableFactors,
-      cerebralOedema,
       data.clientUseragent,
       clientIP,
       data.appVersion,
