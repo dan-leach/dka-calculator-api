@@ -62,10 +62,9 @@ const calculateVariables = (data) => {
       }
 
       // Log error if no valid severity is found
-      errors.push({
-        msg: `pH of ${data.pH} and bicarbonate of ${data.bicarbonate} mmol/L does not meet the diagnostic threshold for DKA.`,
-      });
-      return false;
+      throw new Error(
+        `pH of ${data.pH} and bicarbonate of ${data.bicarbonate} mmol/L does not meet the diagnostic threshold for DKA.`
+      );
     };
     const val = calculateVal();
 
