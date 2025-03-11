@@ -224,7 +224,8 @@ app.post("/calculate", calculateRules, validateRequest, async (req, res) => {
       500,
       "/calculate",
       "Failed to perform calculations",
-      res
+      res,
+      ["episodeType: " + req.body.episodeType, req.body.centre + " (" + req.body.region + ")", "clientDatetime: " + req.body.clientDatetime, req.ip]
     );
   }
 });

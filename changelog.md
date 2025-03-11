@@ -7,6 +7,13 @@ See also:
 - [Client changelog](https://github.com/dan-leach/dka-calculator/blob/main/changelog.md)
 - [Contributors](https://github.com/dan-leach/dka-calculator/blob/main/contributors.md) to the project.
 
+## [v1.2] - 2025-03-11 16:15
+
+### Changed
+
+- More details logged for calculate route errors to help investigate source of requests not meeting diagnostic criteria for DKA
+- Config now includes lastUpdated value to support UKCA label on client-side
+
 ## [v1.1] - 2025-02-27 13:45
 
 ### Added
