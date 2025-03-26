@@ -62,14 +62,18 @@ app.get("/", (req, res) => {
  * @route GET /config
  * @summary Provides the configuration settings to the client.
  *
- * @description This route sends the contents of the server's config file to the client as a JSON response.
- * The config file contains various settings that the client might need, such as API endpoints or feature flags.
+ * @description This route sends the contents of the server's config file to the client as a JSON response after
+ * adding the version data from environment variables. The config file contains various settings that the client
+ * might need, such as API endpoints or feature flags.
  *
  * @returns {Object} 200 - JSON object containing the server's configuration.
  */
 app.get("/config", (req, res) => {
   try {
     const config = require("./config.json");
+    config.organisations.bsped.icpVersion = process.env.icpVersion;
+    config.api.version = process.env.apiVersion;
+    config.client.version = process.env.clientVersion;
     res.json(config);
   } catch (error) {
     handleError(
@@ -225,7 +229,12 @@ app.post("/calculate", calculateRules, validateRequest, async (req, res) => {
       "/calculate",
       "Failed to perform calculations",
       res,
-      ["episodeType: " + req.body.episodeType, req.body.centre + " (" + req.body.region + ")", "clientDatetime: " + req.body.clientDatetime, req.ip]
+      [
+        "episodeType: " + req.body.episodeType,
+        req.body.centre + " (" + req.body.region + ")",
+        "clientDatetime: " + req.body.clientDatetime,
+        req.ip,
+      ]
     );
   }
 });

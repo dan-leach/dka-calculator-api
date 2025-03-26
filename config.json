@@ -14,14 +14,12 @@
   "organisations": {
     "bsped": {
       "main": "https://www.bsped.org.uk",
-      "dkaGuidelines": "https://www.bsped.org.uk/clinical-resources/bsped-dka-guidelines/",
-      "icpVersion": "1.4"
+      "dkaGuidelines": "https://www.bsped.org.uk/clinical-resources/bsped-dka-guidelines/"
     },
     "ispad": "https://www.ispad.org"
   },
   "disclaimer": "Decisions about patient care remain the treating clinician's responsibility.",
   "api": {
-    "version": "1.2",
     "repo": {
       "main": "https://github.com/dan-leach/dka-calculator-api",
       "changelog": "https://github.com/dan-leach/dka-calculator-api/blob/main/changelog.md"
@@ -39,7 +37,6 @@
   "client": {
     "url": "https://dka-calculator.co.uk",
     "sodiumOsmoUrl": "https://dka-calculator.co.uk/sodium-osmo",
-    "version": "2.2",
     "repo": {
       "main": "https://github.com/dan-leach/dka-calculator",
       "changelog": "https://github.com/dan-leach/dka-calculator/blob/main/changelog.md"
