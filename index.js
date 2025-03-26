@@ -74,6 +74,7 @@ app.get("/config", (req, res) => {
     config.organisations.bsped.icpVersion = process.env.icpVersion;
     config.api.version = process.env.apiVersion;
     config.client.version = process.env.clientVersion;
+    config.lastUpdated = process.env.lastUpdated;
     res.json(config);
   } catch (error) {
     handleError(
