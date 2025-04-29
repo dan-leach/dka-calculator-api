@@ -314,6 +314,7 @@ app.post("/update", updateRules, validateRequest, async (req, res) => {
       }
     } catch (error) {
       handleError(error, 401, "/update", "Failed to perform update", res);
+      return false;
     }
 
     //check the episode has a patientHash
