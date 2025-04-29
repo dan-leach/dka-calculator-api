@@ -1,30 +1,27 @@
 {
   "appName": "Paediatric DKA Calculator",
   "underDevelopment": false,
-  "lastUpdated": "2025-02-27",
   "author": {
     "name": "Dan Leach",
     "url": "https://danleach.uk",
     "email": "admin@dka-calculator.co.uk",
     "contributors": {
       "current": "<a href='https://github.com/drJonathanFenwick/' target='_blank'>Jonathan Fenwick</a>, <a href='https://github.com/dannysimpson0912/' target='_blank'>Danny Simpson</a>, <a href='https://github.com/rspaull/' target='_blank'>Rob Spaull</a>, <a href='https://sec.stealthcopter.com/' target='_blank'>Mat Rollings</a>",
-      "url": "https://github.com/dan-leach/dka-calculator/blob/main/contributors.md"
+      "url": "https://github.com/dan-leach/dka-calculator/wiki/Contributors"
     }
   },
   "organisations": {
     "bsped": {
       "main": "https://www.bsped.org.uk",
-      "dkaGuidelines": "https://www.bsped.org.uk/clinical-resources/bsped-dka-guidelines/",
-      "icpVersion": "1.4"
+      "dkaGuidelines": "https://www.bsped.org.uk/clinical-resources/bsped-dka-guidelines/"
     },
     "ispad": "https://www.ispad.org"
   },
   "disclaimer": "Decisions about patient care remain the treating clinician's responsibility.",
   "api": {
-    "version": "1.2",
     "repo": {
       "main": "https://github.com/dan-leach/dka-calculator-api",
-      "changelog": "https://github.com/dan-leach/dka-calculator-api/blob/main/changelog.md"
+      "changelog": "https://github.com/dan-leach/dka-calculator-api/wiki/Changelog"
     },
     "url": "https://api.dka-calculator.co.uk/",
     "timeoutDuration": 15000,
@@ -39,10 +36,9 @@
   "client": {
     "url": "https://dka-calculator.co.uk",
     "sodiumOsmoUrl": "https://dka-calculator.co.uk/sodium-osmo",
-    "version": "2.2",
     "repo": {
       "main": "https://github.com/dan-leach/dka-calculator",
-      "changelog": "https://github.com/dan-leach/dka-calculator/blob/main/changelog.md"
+      "changelog": "https://github.com/dan-leach/dka-calculator/wiki/Changelog"
     }
   },
   "validation": {
