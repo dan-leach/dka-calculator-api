@@ -225,7 +225,12 @@ app.post("/calculate", calculateRules, validateRequest, async (req, res) => {
       "/calculate",
       "Failed to perform calculations",
       res,
-      ["episodeType: " + req.body.episodeType, req.body.centre + " (" + req.body.region + ")", "clientDatetime: " + req.body.clientDatetime, req.ip]
+      [
+        "episodeType: " + req.body.episodeType,
+        req.body.centre + " (" + req.body.region + ")",
+        "clientDatetime: " + req.body.clientDatetime,
+        req.ip,
+      ]
     );
   }
 });
@@ -304,6 +309,7 @@ app.post("/update", updateRules, validateRequest, async (req, res) => {
       }
     } catch (error) {
       handleError(error, 401, "/update", "Failed to perform update", res);
+      return false;
     }
 
     //check the episode has a patientHash
