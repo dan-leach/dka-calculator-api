@@ -38,7 +38,8 @@
     "sodiumOsmoUrl": "https://dka-calculator.co.uk/sodium-osmo",
     "repo": {
       "main": "https://github.com/dan-leach/dka-calculator",
-      "changelog": "https://github.com/dan-leach/dka-calculator/wiki/Changelog"
+      "changelog": "https://github.com/dan-leach/dka-calculator/wiki/Changelog",
+      "icpChangelog": "https://github.com/dan-leach/dka-calculator/wiki/Integrated-Care-Pathway-(ICP)-Changelog"
     }
   },
   "validation": {
