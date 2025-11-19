@@ -130,20 +130,22 @@ app.post("/calculate", calculateRules, validateRequest, async (req, res) => {
     //get the validated data
     const data = matchedData(req);
 
-    //check the weight is within limits or override is true
-    const check = checkWeightWithinLimit(data);
-    try {
-      if (!check.pass) {
-        throw new Error(check.error);
+    if (!data.retospectiveEpisode) {
+      //check the weight is within limits or override is true
+      const check = checkWeightWithinLimit(data);
+      try {
+        if (!check.pass) {
+          throw new Error(check.error);
+        }
+      } catch (error) {
+        handleError(
+          error,
+          400,
+          "/calculate",
+          "Check weight within limit failed",
+          res
+        );
       }
-    } catch (error) {
-      handleError(
-        error,
-        400,
-        "/calculate",
-        "Check weight within limit failed",
-        res
-      );
     }
 
     //limit decimal age to 2 decimal places after checkWeighWithinLimit
@@ -153,19 +155,22 @@ app.post("/calculate", calculateRules, validateRequest, async (req, res) => {
     const clientIP = req.ip;
 
     //perform the calculations and check for errors
-    const calculations = calculateVariables(data);
-    try {
-      if (calculations.errors.length) {
-        throw new Error(calculations.errors.join(", "));
+    let calculations;
+    if (!data.retospectiveEpisode) {
+      calculations = calculateVariables(data);
+      try {
+        if (calculations.errors.length) {
+          throw new Error(calculations.errors.join(", "));
+        }
+      } catch (error) {
+        handleError(
+          error,
+          400,
+          "/calculate",
+          "Failed to perform calculations",
+          res
+        );
       }
-    } catch (error) {
-      handleError(
-        error,
-        400,
-        "/calculate",
-        "Failed to perform calculations",
-        res
-      );
     }
 
     //set undefined optional values to null
@@ -365,6 +370,81 @@ app.post("/update", updateRules, validateRequest, async (req, res) => {
     res.json("Audit data update complete");
   } catch (error) {
     handleError(error, 500, "/update", "Failed to perform update", res);
+  }
+});
+
+/**
+ * @route POST /addHash
+ * @summary Retrospectively adds a patient hash for an episode without one.
+ *
+ * @description This endpoint receives a POST request to add a patient hash to a episode. The episode is checked to confirm it doesn't already have a patient hash. The episode is confirmed as correct by matching the treating centre, episode date and audit ID.
+ *
+ * @requires ./modules/insertData - Module to insert or update data in the database.
+ * @requires ./modules/updateCheck - Module to check and retrieve patient data based on audit ID.
+ *
+ * @param {object} req - The request object, with validated data.
+ * @param {object} req.body - Contains patient data fields, including audit ID, episode date, treating centre and patient hash.
+ * @param {object} res - The response object for sending update results or error messages.
+ *
+ * @returns {string} 200 - Success message confirming the update.
+ * @returns {string} 401 - Error message if submitted treating centre or date do not match the audit ID
+ * @returns {object} 500 - Error message if a server error occurs.
+ */
+app.post("/addHash", addHashRules, validateRequest, async (req, res) => {
+  try {
+    const { insertHashData } = require("./modules/insertData");
+    const { updateCheck } = require("./modules/updateCheck");
+
+    //get the submitted data that passed validation
+    const data = matchedData(req);
+
+    //get the patientHash in the database for given audit ID to check correct patient
+    const check = await updateCheck(data.auditID);
+
+    //check the updateCheck found a record
+    try {
+      if (!check) {
+        throw new Error(`Audit ID [${data.auditID}] not found in database`);
+      }
+    } catch (error) {
+      handleError(error, 401, "/update", "Failed to perform update", res);
+      return false;
+    }
+
+    //check the episode does not already have a patientHash
+    if (check.patientHash) {
+      res
+        .status(401)
+        .json(
+          `The episode matching the audit ID [${data.auditID}] already has a patient hash.`
+        );
+      return;
+    }
+
+    //check the treating centre and episode date match the audit ID
+    if (
+      check.centre !== data.centre ||
+      check.clientDatetime.getFullYear() !== data.episodeDate.getFullYear() ||
+      check.clientDatetime.getMonth() !== data.episodeDate.getMonth() ||
+      check.clientDatetime.getDate() !== data.episodeDate.getDate()
+    ) {
+      res
+        .status(401)
+        .json(
+          `The provided treating centre or episode date do not matching the data held for the episode with audit ID [${data.auditID}].`
+        );
+      return;
+    }
+
+    //perform the second step hash before checking patientHash matches
+    const patientHash = rehashPatientHash(data.patientHash);
+
+    //update the database with new data
+    await insertHashData(patientHash, data.auditID);
+
+    res.json("Patient hash added");
+  } catch (error) {
+    handleError(error, 500, "/update", "Failed to add patient hash", res);
   }
 });
 

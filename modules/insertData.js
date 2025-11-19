@@ -28,11 +28,12 @@ async function insertCalculateData(
     // Prepare SQL statement
     const sql = `
       INSERT INTO ${config.api.tables.calculate} (
-        encryptedData, legalAgreement, episodeType, region, centre, auditID, patientHash, clientDatetime, clientUseragent, clientIP, appVersion) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        retrospectiveEpisode, encryptedData, legalAgreement, episodeType, region, centre, auditID, patientHash, clientDatetime, clientUseragent, clientIP, appVersion) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     // Execute SQL statement
     const [result] = await connection.execute(sql, [
+      data.retrospectiveEpisode ? new Date() : null,
       encryptedData,
       data.legalAgreement,
       data.episodeType,
@@ -104,6 +105,49 @@ async function insertUpdateData(data, encryptedData, clientIP) {
   }
 }
 
+/**
+ * Inserts retrospective patient hash in the database.
+ * @param {String} patientHash - The patient hash to be added.
+ * @param {String} auditID - The auditID of the episode to be modified.
+ * @throws {Error} If an error occurs during the database operation.
+ */
+async function insertHashData(patientHash, auditID) {
+  try {
+    const connection = await mysql.createConnection({
+      host: "localhost",
+      user: process.env.insertUser,
+      password: process.env.insertKey,
+      database: "dkacalcu_dka_database",
+    });
+
+    // Prepare SQL statement for update
+    const sql = `
+      UPDATE ${config.api.tables.calculate}
+      SET patientHash = ?, retrospectivePatientHash = ?
+      WHERE auditID = ?
+    `;
+
+    // Execute SQL statement
+    const [result] = await connection.execute(sql, [
+      patientHash,
+      new Date(),
+      auditID,
+    ]);
+
+    if (result.affectedRows === 0) {
+      throw new Error("Patient hash could not be added: No rows affected");
+    }
+  } catch (error) {
+    throw new Error(`Patient hash could not be added ${error.message}`);
+  } finally {
+    try {
+      await connection.end();
+    } catch {
+      //no connection to close
+    }
+  }
+}
+
 async function insertSodiumOsmoData(data, calculations, clientIP) {
   try {
     const connection = await mysql.createConnection({
@@ -146,5 +190,6 @@ async function insertSodiumOsmoData(data, calculations, clientIP) {
 module.exports = {
   insertCalculateData,
   insertUpdateData,
+  insertHashData,
   insertSodiumOsmoData,
 };

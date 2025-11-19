@@ -27,9 +27,9 @@
     "timeoutDuration": 15000,
     "showConsole": true,
     "tables": {
-      "calculate": "tbl_data_v2",
-      "update": "tbl_update_v2",
-      "sodiumOsmo": "tbl_sodiumOsmo_v2",
+      "calculate": "tbl_data_dev",
+      "update": "tbl_update_dev",
+      "sodiumOsmo": "tbl_sodiumOsmo_dev",
       "decrypt": "tbl_decrypt"
     }
   },

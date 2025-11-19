@@ -14,7 +14,7 @@ async function updateCheck(auditID) {
       password: process.env.selectKey,
       database: "dkacalcu_dka_database",
     });
-    const sql = `SELECT auditID, patientHash FROM ${config.api.tables.calculate} WHERE auditID = ?`;
+    const sql = `SELECT * FROM ${config.api.tables.calculate} WHERE auditID = ?`;
 
     const [rows] = await connection.execute(sql, [auditID]);
 
