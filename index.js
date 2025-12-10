@@ -19,6 +19,8 @@ const crypto = require("crypto");
 const { matchedData } = require("express-validator");
 const {
   validateRequest,
+  checkRetrospectiveStatusRules,
+  addHashRules,
   updateRules,
   calculateRules,
   sodiumOsmoRules,
@@ -71,10 +73,11 @@ app.get("/", (req, res) => {
 app.get("/config", (req, res) => {
   try {
     const config = require("./config.json");
-    config.organisations.bsped.icpVersion = process.env.icpVersion;
-    config.api.version = process.env.apiVersion;
-    config.client.version = process.env.clientVersion;
-    config.lastUpdated = process.env.lastUpdated;
+
+    config.api.version = process.env.version;
+    config.api.lastUpdated = process.env.lastUpdated;
+    config.api.underDevelopment = process.env.NODE_ENV === "development";
+
     res.json(config);
   } catch (error) {
     handleError(
@@ -130,7 +133,7 @@ app.post("/calculate", calculateRules, validateRequest, async (req, res) => {
     //get the validated data
     const data = matchedData(req);
 
-    if (!data.retospectiveEpisode) {
+    if (!data.retrospectiveEpisode) {
       //check the weight is within limits or override is true
       const check = checkWeightWithinLimit(data);
       try {
@@ -156,7 +159,7 @@ app.post("/calculate", calculateRules, validateRequest, async (req, res) => {
 
     //perform the calculations and check for errors
     let calculations;
-    if (!data.retospectiveEpisode) {
+    if (!data.retrospectiveEpisode) {
       calculations = calculateVariables(data);
       try {
         if (calculations.errors.length) {
@@ -171,6 +174,8 @@ app.post("/calculate", calculateRules, validateRequest, async (req, res) => {
           res
         );
       }
+    } else {
+      calculations = "not done for retrospective episodes";
     }
 
     //set undefined optional values to null
@@ -190,6 +195,9 @@ app.post("/calculate", calculateRules, validateRequest, async (req, res) => {
 
     //generate a new unique auditID
     const auditID = await generateAuditID();
+
+    //add API version
+    data.appVersion.api = process.env.version;
 
     //encrypt the data
     const encryptedData = encrypt({
@@ -272,6 +280,160 @@ app.get("/decrypt", async (req, res) => {
     res.json("Decrypt run");
   } catch (error) {
     handleError(error, 500, "/decrypt", "Failed to decrypt", res);
+  }
+});
+
+/**
+ * @route POST /checkRetrospectiveStatus
+ * @summary Retrospectively adds a patient hash for an episode without one.
+ *
+ * @description This endpoint receives a POST request to add a patient hash to a episode. The episode is checked to confirm it doesn't already have a patient hash. The episode is confirmed as correct by matching the treating centre, episode date and audit ID.
+ *
+ * @requires ./modules/insertData - Module to insert or update data in the database.
+ * @requires ./modules/checkID - Module to check and retrieve patient data based on audit ID.
+ *
+ * @param {object} req - The request object, with validated data.
+ * @param {object} req.body - Contains patient data fields, including audit ID, episode date, treating centre and patient hash.
+ * @param {object} res - The response object for sending update results or error messages.
+ *
+ * @returns {string} 200 - Success message confirming the update.
+ * @returns {string} 401 - Error message if submitted treating centre or date do not match the audit ID
+ * @returns {object} 500 - Error message if a server error occurs.
+ */
+app.post(
+  "/checkRetrospectiveStatus",
+  checkRetrospectiveStatusRules,
+  validateRequest,
+  async (req, res) => {
+    try {
+      const { checkID } = require("./modules/checkID");
+      const { checkAuditData } = require("./modules/checkAuditData");
+
+      //get the submitted data that passed validation
+      const data = matchedData(req);
+
+      //get the patientHash in the database for given audit ID to check correct patient
+      const check1 = await checkID(data.auditID);
+
+      const response = {
+        auditID: null,
+        patientHash: null,
+        auditData: null,
+      };
+
+      //check the checkID found a record
+      if (!check1) {
+        response.auditID = false;
+        res.status(200).json(response);
+        return;
+      } else {
+        response.auditID = true;
+      }
+
+      //check if the episode already has a patientHash
+      if (!check1.patientHash) {
+        response.patientHash = false;
+        res.status(200).json(response);
+        return;
+      } else {
+        response.patientHash = true;
+      }
+
+      //check if the episode already has retrospective audit data
+      const check2 = await checkAuditData(data.auditID);
+      if (!check2) {
+        response.auditData = false;
+        res.status(200).json(response);
+        return;
+      } else {
+        response.auditData = true;
+        res.status(200).json(response);
+        return;
+      }
+    } catch (error) {
+      handleError(
+        error,
+        500,
+        "/checkRetrospectiveStatus",
+        "Failed to check retrospective data status",
+        res
+      );
+    }
+  }
+);
+
+/**
+ * @route POST /addHash
+ * @summary Retrospectively adds a patient hash for an episode without one.
+ *
+ * @description This endpoint receives a POST request to add a patient hash to a episode. The episode is checked to confirm it doesn't already have a patient hash. The episode is confirmed as correct by matching the treating centre, episode date and audit ID.
+ *
+ * @requires ./modules/insertData - Module to insert or update data in the database.
+ * @requires ./modules/updateCheck - Module to check and retrieve patient data based on audit ID.
+ *
+ * @param {object} req - The request object, with validated data.
+ * @param {object} req.body - Contains patient data fields, including audit ID, episode date, treating centre and patient hash.
+ * @param {object} res - The response object for sending update results or error messages.
+ *
+ * @returns {string} 200 - Success message confirming the update.
+ * @returns {string} 401 - Error message if submitted treating centre or date do not match the audit ID
+ * @returns {object} 500 - Error message if a server error occurs.
+ */
+app.post("/addHash", addHashRules, validateRequest, async (req, res) => {
+  try {
+    const { insertHashData } = require("./modules/insertData");
+    const { updateCheck } = require("./modules/updateCheck");
+
+    //get the submitted data that passed validation
+    const data = matchedData(req);
+
+    //get the patientHash in the database for given audit ID to check correct patient
+    const check = await updateCheck(data.auditID);
+
+    //check the updateCheck found a record
+    try {
+      if (!check) {
+        throw new Error(`Audit ID [${data.auditID}] not found in database`);
+      }
+    } catch (error) {
+      handleError(error, 401, "/update", "Failed to perform update", res);
+      return false;
+    }
+
+    //check the episode does not already have a patientHash
+    if (check.patientHash) {
+      res
+        .status(401)
+        .json(
+          `The episode matching the audit ID [${data.auditID}] already has a patient hash.`
+        );
+      return;
+    }
+
+    //check the treating centre and episode date match the audit ID
+    if (
+      check.centre !== data.centre ||
+      check.clientDatetime.getFullYear() !== data.episodeDate.getFullYear() ||
+      check.clientDatetime.getMonth() !== data.episodeDate.getMonth() ||
+      check.clientDatetime.getDate() !== data.episodeDate.getDate()
+    ) {
+      res
+        .status(401)
+        .json(
+          `The provided treating centre or episode date do not matching the data held for the episode with audit ID [${data.auditID}].`
+        );
+      return;
+    }
+
+    //perform the second step hash before checking patientHash matches
+    const patientHash = rehashPatientHash(data.patientHash);
+
+    //update the database with new data
+    await insertHashData(patientHash, data.auditID);
+
+    res.json("Patient hash added");
+  } catch (error) {
+    handleError(error, 500, "/update", "Failed to add patient hash", res);
   }
 });
 
@@ -370,81 +532,6 @@ app.post("/update", updateRules, validateRequest, async (req, res) => {
     res.json("Audit data update complete");
   } catch (error) {
     handleError(error, 500, "/update", "Failed to perform update", res);
-  }
-});
-
-/**
- * @route POST /addHash
- * @summary Retrospectively adds a patient hash for an episode without one.
- *
- * @description This endpoint receives a POST request to add a patient hash to a episode. The episode is checked to confirm it doesn't already have a patient hash. The episode is confirmed as correct by matching the treating centre, episode date and audit ID.
- *
- * @requires ./modules/insertData - Module to insert or update data in the database.
- * @requires ./modules/updateCheck - Module to check and retrieve patient data based on audit ID.
- *
- * @param {object} req - The request object, with validated data.
- * @param {object} req.body - Contains patient data fields, including audit ID, episode date, treating centre and patient hash.
- * @param {object} res - The response object for sending update results or error messages.
- *
- * @returns {string} 200 - Success message confirming the update.
- * @returns {string} 401 - Error message if submitted treating centre or date do not match the audit ID
- * @returns {object} 500 - Error message if a server error occurs.
- */
-app.post("/addHash", addHashRules, validateRequest, async (req, res) => {
-  try {
-    const { insertHashData } = require("./modules/insertData");
-    const { updateCheck } = require("./modules/updateCheck");
-
-    //get the submitted data that passed validation
-    const data = matchedData(req);
-
-    //get the patientHash in the database for given audit ID to check correct patient
-    const check = await updateCheck(data.auditID);
-
-    //check the updateCheck found a record
-    try {
-      if (!check) {
-        throw new Error(`Audit ID [${data.auditID}] not found in database`);
-      }
-    } catch (error) {
-      handleError(error, 401, "/update", "Failed to perform update", res);
-      return false;
-    }
-
-    //check the episode does not already have a patientHash
-    if (check.patientHash) {
-      res
-        .status(401)
-        .json(
-          `The episode matching the audit ID [${data.auditID}] already has a patient hash.`
-        );
-      return;
-    }
-
-    //check the treating centre and episode date match the audit ID
-    if (
-      check.centre !== data.centre ||
-      check.clientDatetime.getFullYear() !== data.episodeDate.getFullYear() ||
-      check.clientDatetime.getMonth() !== data.episodeDate.getMonth() ||
-      check.clientDatetime.getDate() !== data.episodeDate.getDate()
-    ) {
-      res
-        .status(401)
-        .json(
-          `The provided treating centre or episode date do not matching the data held for the episode with audit ID [${data.auditID}].`
-        );
-      return;
-    }
-
-    //perform the second step hash before checking patientHash matches
-    const patientHash = rehashPatientHash(data.patientHash);
-
-    //update the database with new data
-    await insertHashData(patientHash, data.auditID);
-
-    res.json("Patient hash added");
-  } catch (error) {
-    handleError(error, 500, "/update", "Failed to add patient hash", res);
   }
 });
 

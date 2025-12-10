@@ -6,7 +6,7 @@ const config = require("../config");
  * @param {string} auditID - The audit ID to search for.
  * @returns {Promise<Object>} - The fetched data containing auditID and patientHash.
  */
-async function updateCheck(auditID) {
+async function checkAuditData(auditID) {
   try {
     const connection = await mysql.createConnection({
       host: "localhost",
@@ -14,7 +14,8 @@ async function updateCheck(auditID) {
       password: process.env.selectKey,
       database: "dkacalcu_dka_database",
     });
-    const sql = `SELECT * FROM ${config.api.tables.calculate} WHERE auditID = ?`;
+
+    const sql = `SELECT * FROM ${config.api.tables.update} WHERE auditID = ?`;
 
     const [rows] = await connection.execute(sql, [auditID]);
 
@@ -36,5 +37,5 @@ async function updateCheck(auditID) {
 }
 
 module.exports = {
-  updateCheck,
+  checkAuditData,
 };
