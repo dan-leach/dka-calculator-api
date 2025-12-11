@@ -338,7 +338,7 @@ const checkRetrospectiveStatusRules = [
  * Validation rules for the addHash route.
  * @type {Array}
  */
-const addHashRules = [
+const addRetrospectivePatientHashRules = [
   check("auditID")
     .isAlphanumeric()
     .withMessage(
@@ -363,9 +363,9 @@ const addHashRules = [
     .isLength({ min: 64, max: 64 })
     .withMessage("Patient hash field must be exactly 64 characters in length."),
 
-  check("protocolStartDatetime")
+  check("protocolStartDate")
     .isISO8601() // Validates the input as an ISO 8601 date
-    .withMessage("Protocol start datetime must be ISO8601 date format."),
+    .withMessage("Protocol start date must be ISO8601 date format."),
 
   check("centre")
     .isString()
@@ -563,7 +563,7 @@ const validateRequest = (req, res, next) => {
 module.exports = {
   calculateRules,
   checkRetrospectiveStatusRules,
-  addHashRules,
+  addRetrospectivePatientHashRules,
   updateRules,
   sodiumOsmoRules,
   validateRequest,
