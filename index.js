@@ -482,16 +482,16 @@ app.post(
 app.post("/update", updateRules, validateRequest, async (req, res) => {
   try {
     const { insertUpdateData } = require("./modules/insertData");
-    const { updateCheck } = require("./modules/updateCheck");
+    const { checkID } = require("./modules/checkID");
     const { encrypt } = require("./modules/encrypt");
 
     //get the submitted data that passed validation
     const data = matchedData(req);
 
     //get the patientHash in the database for given audit ID to check correct patient
-    const check = await updateCheck(data.auditID);
+    const check = await checkID(data.auditID);
 
-    //check the updateCheck found a record
+    //check the checkID found a record
     try {
       if (!check) {
         throw new Error(`Audit ID [${data.auditID}] not found in database`);
@@ -506,7 +506,7 @@ app.post("/update", updateRules, validateRequest, async (req, res) => {
       res
         .status(406)
         .json(
-          `The episode matching the audit ID [${data.auditID}] was created without providing an NHS number. Retrospective audit data updates are therefore not accepted.`
+          `The episode matching the audit ID [${data.auditID}] is missing a patient hash which must be corrected before submitting retrospective audit data.`
         );
       return;
     }
