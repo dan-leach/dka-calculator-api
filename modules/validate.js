@@ -6,6 +6,10 @@ const config = require("../config.json");
  * @type {Array}
  */
 const calculateRules = [
+  check("retrospectiveEpisode")
+    .isBoolean()
+    .withMessage("Retrospective episode field must be data type [boolean]."),
+
   check("legalAgreement")
     .isBoolean()
     .withMessage("Legal agreement field must be data type [boolean].")
@@ -301,6 +305,75 @@ const calculateRules = [
 ];
 
 /**
+ * Validation rules for the addHash route.
+ * @type {Array}
+ */
+const checkRetrospectiveStatusRules = [
+  check("auditID")
+    .isAlphanumeric()
+    .withMessage(
+      "Audit ID field must be data type [string], containing alphanumeric characters only."
+    )
+    .bail()
+    .isLength({
+      min: config.validation.auditID.length,
+      max: config.validation.auditID.length,
+    })
+    .withMessage(
+      `Audit ID field must be exactly ${config.validation.auditID.length} characters in length.`
+    ),
+
+  check("patientHash")
+    .optional()
+    .isAlphanumeric()
+    .withMessage(
+      "Patient hash field must be data type [string], containing alphanumeric characters only."
+    )
+    .bail()
+    .isLength({ min: 64, max: 64 })
+    .withMessage("Patient hash field must be exactly 64 characters in length."),
+];
+
+/**
+ * Validation rules for the addHash route.
+ * @type {Array}
+ */
+const addRetrospectivePatientHashRules = [
+  check("auditID")
+    .isAlphanumeric()
+    .withMessage(
+      "Audit ID field must be data type [string], containing alphanumeric characters only."
+    )
+    .bail()
+    .isLength({
+      min: config.validation.auditID.length,
+      max: config.validation.auditID.length,
+    })
+    .withMessage(
+      `Audit ID field must be exactly ${config.validation.auditID.length} characters in length.`
+    ),
+
+  check("patientHash")
+    .optional()
+    .isAlphanumeric()
+    .withMessage(
+      "Patient hash field must be data type [string], containing alphanumeric characters only."
+    )
+    .bail()
+    .isLength({ min: 64, max: 64 })
+    .withMessage("Patient hash field must be exactly 64 characters in length."),
+
+  check("protocolStartDate")
+    .isISO8601() // Validates the input as an ISO 8601 date
+    .withMessage("Protocol start date must be ISO8601 date format."),
+
+  check("centre")
+    .isString()
+    .withMessage("Treating centre field must be data type [string].")
+    .escape(),
+];
+
+/**
  * Validation rules for the update route.
  * @type {Array}
  */
@@ -489,6 +562,8 @@ const validateRequest = (req, res, next) => {
 
 module.exports = {
   calculateRules,
+  checkRetrospectiveStatusRules,
+  addRetrospectivePatientHashRules,
   updateRules,
   sodiumOsmoRules,
   validateRequest,
