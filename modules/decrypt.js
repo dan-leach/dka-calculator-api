@@ -158,7 +158,7 @@ async function decryptTable(decryptID, centre) {
 
     // Insert decrypted data into tbl_decrypt
     await connection.execute(
-      `INSERT INTO ${config.api.tables.decrypt} (id, episodeType, auditID, retrospectivePatientHash, retrospectiveEpisode, appVersion, patientHash, legalAgreement, region, centre, clientDatetime, serverDatetime, clientUseragent, clientIP, protocolStartDatetime, patientAge, patientSex, pH, bicarbonate, glucose, ketones, calculations, weightLimitOverride, use2SD, shockPresent, insulinRate, preExistingDiabetes, insulinDeliveryMethod, ethnicGroup, ethnicSubgroup, preventableFactors, imdDecile) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO ${config.api.tables.decrypt} (id, episodeType, auditID, retrospectivePatientHash, retrospectiveEpisode, appVersion, patientNumber, legalAgreement, region, centre, clientDatetime, serverDatetime, clientUseragent, clientIP, protocolStartDatetime, patientAge, patientSex, pH, bicarbonate, glucose, ketones, calculations, weightLimitOverride, use2SD, shockPresent, insulinRate, preExistingDiabetes, insulinDeliveryMethod, ethnicGroup, ethnicSubgroup, preventableFactors, imdDecile) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         episodeType,
@@ -166,7 +166,7 @@ async function decryptTable(decryptID, centre) {
         retrospectivePatientHash,
         retrospectiveEpisode,
         appVersion,
-        patientNumber, // patientHash
+        patientNumber,
         legalAgreement,
         region,
         centre,
@@ -280,6 +280,128 @@ async function decryptTable(decryptID, centre) {
 }
 
 /**
+ * Creates a streamlined version of the decrypt table with deduplicated data.
+ * Only includes records where episodeType = 'real'.
+ * Deduplicates by patientNumber: if multiple episodes exist for the same patient,
+ * and their protocolStartDatetimes are within 24 hours, selects one record,
+ * preferring those with audit data (auditTableID not null), then the most recent by serverDatetime.
+ * If protocolStartDatetimes span more than 24 hours, or if only one episode, inserts all applicable records.
+ *
+ * @returns {Promise<void>} - Resolves when the streamlined table is populated.
+ */
+async function outputStreamlined() {
+  const connection = await mysql.createConnection({
+    host: "localhost",
+    user: process.env.selectUser,
+    password: process.env.selectKey,
+    database: "dkacalcu_dka_database",
+  });
+
+  // Fetch all records with episodeType = 'real'
+  const [rows] = await connection.execute(
+    `SELECT * FROM ${config.api.tables.decrypt} WHERE episodeType = 'real'`
+  );
+
+  // Group by patientNumber
+  const groups = {};
+  for (const row of rows) {
+    const patientNumber = row.patientNumber;
+    if (!groups[patientNumber]) {
+      groups[patientNumber] = [];
+    }
+    groups[patientNumber].push(row);
+  }
+
+  // Process each group
+  for (const patientNumber in groups) {
+    const group = groups[patientNumber];
+    let recordsToInsert;
+    if (group.length === 1) {
+      // Only one episode, insert it
+      recordsToInsert = group;
+    } else {
+      // Multiple episodes, check if within 24 hours
+      const datetimes = group
+        .map((row) => new Date(row.protocolStartDatetime))
+        .filter((d) => !isNaN(d.getTime()));
+      let within24 = false;
+      if (datetimes.length > 1) {
+        const minTime = Math.min(...datetimes.map((d) => d.getTime()));
+        const maxTime = Math.max(...datetimes.map((d) => d.getTime()));
+        const spanHours = (maxTime - minTime) / (1000 * 60 * 60);
+        within24 = spanHours <= 24;
+      } else if (datetimes.length === 1) {
+        within24 = true; // If only one valid date, consider within
+      }
+
+      if (within24) {
+        // Deduplicate: prefer audit data, then most recent serverDatetime
+        const sorted = group.sort((a, b) => {
+          // First, prefer those with auditTableID not null
+          const aHasAudit = a.auditTableID !== null;
+          const bHasAudit = b.auditTableID !== null;
+          if (aHasAudit && !bHasAudit) return -1;
+          if (!aHasAudit && bHasAudit) return 1;
+          // Then by serverDatetime descending
+          return new Date(b.serverDatetime) - new Date(a.serverDatetime);
+        });
+        recordsToInsert = [sorted[0]];
+      } else {
+        // Do not deduplicate: insert all
+        recordsToInsert = group;
+      }
+    }
+
+    // Insert the records
+    for (const record of recordsToInsert) {
+      // Determine deduplicatedAuditIDs
+      let deduplicatedAuditIDs = null;
+      if (recordsToInsert.length === 1 && group.length > 1) {
+        deduplicatedAuditIDs = group
+          .filter((r) => r.auditID !== record.auditID)
+          .map((r) => r.auditID);
+      }
+
+      await connection.execute(
+        `INSERT INTO ${config.api.tables.decryptStreamlined} (patientNumber, auditID, protocolStartDatetime, auditProtocolEndDatetime, patientAge, patientSex, pH, bicarbonate, glucose, ketones, shockPresent, insulinRate, preExistingDiabetes, auditPreExistingDiabetes, insulinDeliveryMethod, ethnicGroup, ethnicSubgroup, preventableFactors, auditPreventableFactors, imdDecile, auditCerebralOedemaConcern, auditCerebralOedemaImaging, auditCerebralOedemaTreatment, region, centre, calculations, deduplicatedAuditIDs) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          record.patientNumber,
+          record.auditID,
+          record.protocolStartDatetime,
+          record.auditProtocolEndDatetime,
+          record.patientAge,
+          record.patientSex,
+          record.pH,
+          record.bicarbonate,
+          record.glucose,
+          record.ketones,
+          record.shockPresent,
+          record.insulinRate,
+          record.preExistingDiabetes,
+          record.auditPreExistingDiabetes,
+          record.insulinDeliveryMethod,
+          record.ethnicGroup,
+          record.ethnicSubgroup,
+          record.preventableFactors,
+          record.auditPreventableFactors,
+          record.imdDecile,
+          record.auditCerebralOedemaConcern,
+          record.auditCerebralOedemaImaging,
+          record.auditCerebralOedemaTreatment,
+          record.region,
+          record.centre,
+          record.calculations,
+          deduplicatedAuditIDs ? JSON.stringify(deduplicatedAuditIDs) : null,
+        ]
+      );
+    }
+  }
+
+  await connection.end();
+  console.log("Streamlined table populated successfully.");
+}
+
+/**
  * Handles the decryption process by calling decryptTable.
  *
  * @param {string} decryptID - The audit ID to decrypt, or "all" for all records.
@@ -292,7 +414,8 @@ async function decrypt(decryptID, centre) {
   }
   const errorTime = new Date().toISOString();
   console.error(errorTime, "Decrypt.js running...");
-  decryptTable(decryptID, centre);
+  await decryptTable(decryptID, centre);
+  await outputStreamlined();
 }
 
 module.exports = { decrypt };
