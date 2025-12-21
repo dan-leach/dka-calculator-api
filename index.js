@@ -275,7 +275,7 @@ app.get("/decrypt", async (req, res) => {
   try {
     const { decrypt } = require("./modules/decrypt");
 
-    decrypt(req.query.decryptID);
+    decrypt(req.query.decryptID, req.query.centre);
 
     res.json("Decrypt run");
   } catch (error) {
@@ -533,7 +533,7 @@ app.post("/update", updateRules, validateRequest, async (req, res) => {
     const clientIP = req.ip;
 
     const encryptedData = encrypt({
-      protocolStartDatetime: data.protocolEndDatetime,
+      protocolEndDatetime: data.protocolEndDatetime,
       preExistingDiabetes: data.preExistingDiabetes,
       preventableFactors: data.preventableFactors,
       cerebralOedema: {

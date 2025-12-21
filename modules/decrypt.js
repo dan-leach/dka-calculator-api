@@ -1,16 +1,20 @@
 /**
- * Decryption module for retrieving sensitive data from encrypted storage.
+ * Decryption module for retrieving and combining sensitive data from encrypted storage.
+ *
+ * usage https://dev-api.dka-calculator.co.uk/decrypt?decryptID={auditID}&centre={centre}
+ * replace auditID with the auditID to decrypt just that record, or "all" to decrypt all records.
+ * replace centre with the centre name to decrypt records just for that centre, or "all" to decrypt all centres.
  *
  * @module decrypt
- * @summary Provides decryption of AES-encrypted data using RSA for AES key decryption.
+ * @summary Provides decryption of AES-encrypted data using RSA for AES key decryption, retrieving from calculate and update tables, and combining into a single decrypt table entry per auditID.
  *
- * @description This module decrypts data encrypted using AES-256-GCM. The AES key itself is decrypted using an RSA private key.
+ * @description This module decrypts data encrypted using AES-256-GCM. The AES key itself is decrypted using an RSA private key. It retrieves encrypted data from the 'calculate' table, decrypts it, and inserts into the 'decrypt' table. Then, for each auditID, it retrieves the most recent encrypted data from the 'update' table, decrypts it, and updates the corresponding row in the 'decrypt' table with additional fields. Supports filtering by auditID and/or centre.
  *
  * @requires crypto - Node.js built-in module for cryptographic operations.
  * @requires mysql2/promise - MySQL client for executing database queries.
  * @requires process.env.rsaPrivateKey - Environment variable containing the RSA private key in base64 format.
  *
- * @exports decrypt - Function that retrieves and decrypts data based on a given decryptID.
+ * @exports decrypt - Function that retrieves and decrypts data based on a given decryptID and centre.
  */
 const mysql = require("mysql2/promise");
 const crypto = require("crypto");
@@ -68,9 +72,10 @@ function decryptData(encryptedAESKey, encryptedData, iv, authTag) {
  * Retrieves encrypted data from the database and decrypts it.
  *
  * @param {string} decryptID - The audit ID of the data to decrypt, or "all" to decrypt all records.
+ * @param {string} centre - The centre to filter by, or "all" to include all centres.
  * @returns {Promise<void>} - Resolves when decryption and storage are complete.
  */
-async function decryptTable(decryptID) {
+async function decryptTable(decryptID, centre) {
   const connection = await mysql.createConnection({
     host: "localhost",
     user: process.env.selectUser,
@@ -78,22 +83,32 @@ async function decryptTable(decryptID) {
     database: "dkacalcu_dka_database",
   });
 
-  // Fetch encrypted rows
-  const query =
-    decryptID === "all"
-      ? `SELECT id, episodeType, auditID, appVersion, patientHash, legalAgreement, region, centre, clientDatetime, serverDatetime, clientUseragent, clientIP, encryptedData FROM ${config.api.tables.calculate}`
-      : `SELECT id, episodeType, auditID, appVersion, patientHash, legalAgreement, region, centre, clientDatetime, serverDatetime, clientUseragent, clientIP, encryptedData FROM ${config.api.tables.calculate} WHERE auditID = ?`;
+  // Map to assign incremental numbers to unique patientHashes
+  const patientHashMap = new Map();
 
-  const [rows] = await connection.execute(
-    query,
-    decryptID === "all" ? [] : [decryptID]
-  );
+  // Fetch encrypted rows
+  let query = `SELECT id, episodeType, auditID, retrospectivePatientHash, retrospectiveEpisode, appVersion, patientHash, legalAgreement, region, centre, clientDatetime, serverDatetime, clientUseragent, clientIP, encryptedData FROM ${config.api.tables.calculate}`;
+  let params = [];
+
+  if (decryptID !== "all") {
+    query += " WHERE auditID = ?";
+    params.push(decryptID);
+  }
+
+  if (centre !== "all") {
+    query += (params.length > 0 ? " AND" : " WHERE") + " centre = ?";
+    params.push(centre);
+  }
+
+  const [rows] = await connection.execute(query, params);
 
   for (const row of rows) {
     const {
       id,
       episodeType,
       auditID,
+      retrospectivePatientHash,
+      retrospectiveEpisode,
       appVersion,
       patientHash,
       legalAgreement,
@@ -132,15 +147,26 @@ async function decryptTable(decryptID) {
       continue;
     }
 
+    // Assign patient number for redaction
+    let patientNumber = null;
+    if (patientHash) {
+      if (!patientHashMap.has(patientHash)) {
+        patientHashMap.set(patientHash, patientHashMap.size + 1);
+      }
+      patientNumber = patientHashMap.get(patientHash);
+    }
+
     // Insert decrypted data into tbl_decrypt
     await connection.execute(
-      `INSERT INTO ${config.api.tables.decrypt} (id, episodeType, auditID, appVersion, patientHash, legalAgreement, region, centre, clientDatetime, serverDatetime, clientUseragent, clientIP, decryptedData) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO ${config.api.tables.decrypt} (id, episodeType, auditID, retrospectivePatientHash, retrospectiveEpisode, appVersion, patientHash, legalAgreement, region, centre, clientDatetime, serverDatetime, clientUseragent, clientIP, protocolStartDatetime, patientAge, patientSex, pH, bicarbonate, glucose, ketones, calculations, weightLimitOverride, use2SD, shockPresent, insulinRate, preExistingDiabetes, insulinDeliveryMethod, ethnicGroup, ethnicSubgroup, preventableFactors, imdDecile) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         episodeType,
         auditID,
+        retrospectivePatientHash,
+        retrospectiveEpisode,
         appVersion,
-        patientHash,
+        patientNumber, // patientHash
         legalAgreement,
         region,
         centre,
@@ -148,11 +174,106 @@ async function decryptTable(decryptID) {
         serverDatetime,
         clientUseragent,
         clientIP,
-        decryptedObject,
+        decryptedObject.protocolStartDatetime,
+        decryptedObject.patientAge,
+        decryptedObject.patientSex,
+        decryptedObject.pH,
+        decryptedObject.bicarbonate,
+        decryptedObject.glucose,
+        decryptedObject.ketones,
+        decryptedObject.calculations,
+        decryptedObject.weightLimitOverride,
+        decryptedObject.use2SD,
+        decryptedObject.shockPresent,
+        decryptedObject.insulinRate,
+        decryptedObject.preExistingDiabetes,
+        decryptedObject.insulinDeliveryMethod,
+        decryptedObject.ethnicGroup,
+        decryptedObject.ethnicSubgroup,
+        decryptedObject.preventableFactors,
+        decryptedObject.imdDecile,
       ]
     );
 
     console.log(`Successfully decrypted and stored data for row ID ${id}`);
+  }
+
+  // Now handle update table
+  const updateQuery =
+    decryptID === "all"
+      ? `SELECT * FROM ${config.api.tables.update} WHERE (auditID, serverDatetime) IN (SELECT auditID, MAX(serverDatetime) FROM ${config.api.tables.update} GROUP BY auditID)`
+      : `SELECT * FROM ${config.api.tables.update} WHERE auditID = ? AND serverDatetime = (SELECT MAX(serverDatetime) FROM ${config.api.tables.update} WHERE auditID = ?)`;
+
+  const [updateRows] = await connection.execute(
+    updateQuery,
+    decryptID === "all" ? [] : [decryptID, decryptID]
+  );
+
+  for (const row of updateRows) {
+    const {
+      id,
+      auditID,
+      serverDatetime,
+      clientUseragent,
+      clientIP,
+      appVersion,
+      encryptedData,
+    } = row;
+
+    if (!encryptedData) {
+      console.error(`Skipping update row ID ${id}: No encrypted data found.`);
+      continue;
+    }
+
+    let parsedData;
+    try {
+      parsedData = JSON.parse(encryptedData);
+    } catch (error) {
+      console.error(
+        `Failed to parse encryptedData for update row ID ${id}:`,
+        error.message
+      );
+      continue;
+    }
+
+    const { encryptedKey, encryptedData: encData, iv, authTag } = parsedData;
+
+    // Decrypt the data
+    const decryptedObject = decryptData(encryptedKey, encData, iv, authTag);
+
+    if (!decryptedObject) {
+      console.error(`Skipping update row ID ${id}: Decryption failed.`);
+      continue;
+    }
+
+    // Update decrypted data into tbl_decrypt for the matching auditID
+    await connection.execute(
+      `UPDATE ${config.api.tables.decrypt} SET auditTableID = ?,auditProtocolEndDatetime = ?, auditPreExistingDiabetes = ?, auditPreventableFactors = ?, auditCerebralOedemaConcern = ?, auditCerebralOedemaImaging = ?, auditCerebralOedemaTreatment = ?, auditServerDatetime = ?, auditClientUseragent = ?, auditClientIP = ?, auditAppVersion = ? WHERE auditID = ?`,
+      [
+        id,
+        (decryptedObject.protocolEndDatetime ||
+          decryptedObject.protocolStartDatetime) ??
+          null,
+        decryptedObject.preExistingDiabetes ?? null,
+        decryptedObject.preventableFactors
+          ? JSON.stringify(decryptedObject.preventableFactors)
+          : null,
+        decryptedObject.cerebralOedema?.concern ?? null,
+        decryptedObject.cerebralOedema?.imaging ?? null,
+        decryptedObject.cerebralOedema?.treatment
+          ? JSON.stringify(decryptedObject.cerebralOedema.treatment)
+          : null,
+        serverDatetime,
+        clientUseragent,
+        clientIP,
+        appVersion,
+        auditID,
+      ]
+    );
+
+    console.log(
+      `Successfully decrypted and updated data for auditID ${auditID}`
+    );
   }
 
   await connection.end();
@@ -162,15 +283,16 @@ async function decryptTable(decryptID) {
  * Handles the decryption process by calling decryptTable.
  *
  * @param {string} decryptID - The audit ID to decrypt, or "all" for all records.
- * @throws {Error} If no decryptID is provided.
+ * @param {string} centre - The centre to filter by, or "all" for all centres.
+ * @throws {Error} If no decryptID or no centre is provided.
  */
-async function decrypt(decryptID) {
-  if (!decryptID) {
-    throw new Error("No decryptID provided.");
+async function decrypt(decryptID, centre) {
+  if (!decryptID || !centre) {
+    throw new Error("No decryptID or no centre provided.");
   }
   const errorTime = new Date().toISOString();
   console.error(errorTime, "Decrypt.js running...");
-  decryptTable(decryptID);
+  decryptTable(decryptID, centre);
 }
 
 module.exports = { decrypt };
