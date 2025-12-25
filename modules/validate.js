@@ -519,6 +519,13 @@ const updateRules = [
     .isString()
     .withMessage("Client useragent field must be data type [string].")
     .escape(),
+
+  check("auditRoute")
+    .isAlpha()
+    .withMessage(
+      "Audit route field must be data type [string], containing only alphabetic characters."
+    )
+    .escape(),
 ];
 
 const sodiumOsmoRules = [

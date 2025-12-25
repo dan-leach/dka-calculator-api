@@ -86,8 +86,8 @@ async function insertUpdateData(data, encryptedData, clientIP) {
         ? config.api.tables.updateDev
         : config.api.tables.update
     } (
-        encryptedData, auditID, clientUseragent, clientIP, appVersion
-      ) VALUES (?, ?, ?, ?, ?)
+        encryptedData, auditID, clientUseragent, clientIP, appVersion, auditRoute
+      ) VALUES (?, ?, ?, ?, ?, ?)
     `;
 
     // Execute SQL statement
@@ -97,11 +97,26 @@ async function insertUpdateData(data, encryptedData, clientIP) {
       data.clientUseragent,
       clientIP,
       data.appVersion,
+      data.auditRoute,
     ]);
 
     if (result.affectedRows === 0) {
       throw new Error("Audit data could not be updated: No rows affected");
     }
+
+    // Prepare SQL statement for update
+    const sql2 = `
+      UPDATE ${
+        process.env.NODE_ENV === "development"
+          ? config.api.tables.calculateDev
+          : config.api.tables.calculate
+      }
+      SET retrospectiveAuditData = ?
+      WHERE auditID = ?
+    `;
+
+    // Execute SQL statement
+    await connection.execute(sql2, [new Date(), data.auditID]);
   } catch (error) {
     throw new Error(`Audit data could not be updated: ${error.message}`);
   } finally {
