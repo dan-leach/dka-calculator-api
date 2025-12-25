@@ -20,7 +20,11 @@ async function generateAuditID() {
     while (!isUnique) {
       auditID = generateRandomID(6, permittedChars);
       const [rows] = await connection.execute(
-        `SELECT * FROM ${config.api.tables.calculate} WHERE auditID = ?`,
+        `SELECT * FROM ${
+          process.env.NODE_ENV === "development"
+            ? config.api.tables.calculateDev
+            : config.api.tables.calculate
+        } WHERE auditID = ?`,
         [auditID]
       );
 

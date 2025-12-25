@@ -27,7 +27,11 @@ async function insertCalculateData(
 
     // Prepare SQL statement
     const sql = `
-      INSERT INTO ${config.api.tables.calculate} (
+      INSERT INTO ${
+        process.env.NODE_ENV === "development"
+          ? config.api.tables.calculateDev
+          : config.api.tables.calculate
+      } (
         retrospectiveEpisode, encryptedData, legalAgreement, episodeType, region, centre, auditID, patientHash, clientDatetime, clientUseragent, clientIP, appVersion) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
@@ -77,7 +81,11 @@ async function insertUpdateData(data, encryptedData, clientIP) {
     });
 
     // Prepare SQL statement for update
-    const sql = `INSERT INTO ${config.api.tables.update} (
+    const sql = `INSERT INTO ${
+      process.env.NODE_ENV === "development"
+        ? config.api.tables.updateDev
+        : config.api.tables.update
+    } (
         encryptedData, auditID, clientUseragent, clientIP, appVersion
       ) VALUES (?, ?, ?, ?, ?)
     `;
@@ -122,7 +130,11 @@ async function insertHashData(patientHash, auditID) {
 
     // Prepare SQL statement for update
     const sql = `
-      UPDATE ${config.api.tables.calculate}
+      UPDATE ${
+        process.env.NODE_ENV === "development"
+          ? config.api.tables.calculateDev
+          : config.api.tables.calculate
+      }
       SET patientHash = ?, retrospectivePatientHash = ?
       WHERE auditID = ?
     `;
@@ -158,7 +170,11 @@ async function insertSodiumOsmoData(data, calculations, clientIP) {
     });
 
     // Prepare SQL statement for update
-    const sql = `INSERT INTO ${config.api.tables.sodiumOsmo} (
+    const sql = `INSERT INTO ${
+      process.env.NODE_ENV === "development"
+        ? config.api.tables.sodiumOsmoDev
+        : config.api.tables.sodiumOsmo
+    } (
         sodium, glucose, calculations, clientUseragent, clientIP, appVersion
       ) VALUES (?, ?, ?, ?, ?, ?)
     `;

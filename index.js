@@ -78,6 +78,15 @@ app.get("/config", (req, res) => {
     config.api.lastUpdated = process.env.lastUpdated;
     config.api.underDevelopment = process.env.NODE_ENV === "development";
 
+    if (config.api.underDevelopment) {
+      config.api.url = config.api.devUrl;
+      config.client.url = config.client.devUrl;
+      config.client.sodiumOsmoUrl = config.client.devSodiumOsmoUrl;
+      delete config.api.devUrl;
+      delete config.client.devUrl;
+      delete config.client.devSodiumOsmoUrl;
+    }
+
     res.json(config);
   } catch (error) {
     handleError(
@@ -484,6 +493,7 @@ app.post("/update", updateRules, validateRequest, async (req, res) => {
     const { insertUpdateData } = require("./modules/insertData");
     const { checkID } = require("./modules/checkID");
     const { encrypt } = require("./modules/encrypt");
+    const { getImdDecile } = require("./modules/getImdDecile");
 
     //get the submitted data that passed validation
     const data = matchedData(req);
@@ -532,7 +542,13 @@ app.post("/update", updateRules, validateRequest, async (req, res) => {
     //get the IP address of the client request
     const clientIP = req.ip;
 
+    //get the imdDecile from the postcode
+    const imdDecile = await getImdDecile(data.patientPostcode);
+
     const encryptedData = encrypt({
+      imdDecile,
+      ethnicGroup: data.ethnicGroup,
+      ethnicSubgroup: data.ethnicSubgroup,
       protocolEndDatetime: data.protocolEndDatetime,
       preExistingDiabetes: data.preExistingDiabetes,
       preventableFactors: data.preventableFactors,

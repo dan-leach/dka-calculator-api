@@ -15,7 +15,11 @@ async function checkAuditData(auditID) {
       database: "dkacalcu_dka_database",
     });
 
-    const sql = `SELECT * FROM ${config.api.tables.update} WHERE auditID = ?`;
+    const sql = `SELECT * FROM ${
+      process.env.NODE_ENV === "development"
+        ? config.api.tables.updateDev
+        : config.api.tables.update
+    } WHERE auditID = ?`;
 
     const [rows] = await connection.execute(sql, [auditID]);
 

@@ -87,7 +87,11 @@ async function decryptTable(decryptID, centre) {
   const patientHashMap = new Map();
 
   // Fetch encrypted rows
-  let query = `SELECT id, episodeType, auditID, retrospectivePatientHash, retrospectiveEpisode, appVersion, patientHash, legalAgreement, region, centre, clientDatetime, serverDatetime, clientUseragent, clientIP, encryptedData FROM ${config.api.tables.calculate}`;
+  let query = `SELECT id, episodeType, auditID, retrospectivePatientHash, retrospectiveEpisode, appVersion, patientHash, legalAgreement, region, centre, clientDatetime, serverDatetime, clientUseragent, clientIP, encryptedData FROM ${
+    process.env.NODE_ENV === "development"
+      ? config.api.tables.calculateDev
+      : config.api.tables.calculate
+  }`;
   let params = [];
 
   if (decryptID !== "all") {
@@ -201,8 +205,24 @@ async function decryptTable(decryptID, centre) {
   // Now handle update table
   const updateQuery =
     decryptID === "all"
-      ? `SELECT * FROM ${config.api.tables.update} WHERE (auditID, serverDatetime) IN (SELECT auditID, MAX(serverDatetime) FROM ${config.api.tables.update} GROUP BY auditID)`
-      : `SELECT * FROM ${config.api.tables.update} WHERE auditID = ? AND serverDatetime = (SELECT MAX(serverDatetime) FROM ${config.api.tables.update} WHERE auditID = ?)`;
+      ? `SELECT * FROM ${
+          process.env.NODE_ENV === "development"
+            ? config.api.tables.updateDev
+            : config.api.tables.update
+        } WHERE (auditID, serverDatetime) IN (SELECT auditID, MAX(serverDatetime) FROM ${
+          process.env.NODE_ENV === "development"
+            ? config.api.tables.updateDev
+            : config.api.tables.update
+        } GROUP BY auditID)`
+      : `SELECT * FROM ${
+          process.env.NODE_ENV === "development"
+            ? config.api.tables.updateDev
+            : config.api.tables.update
+        } WHERE auditID = ? AND serverDatetime = (SELECT MAX(serverDatetime) FROM ${
+          process.env.NODE_ENV === "development"
+            ? config.api.tables.updateDev
+            : config.api.tables.update
+        } WHERE auditID = ?)`;
 
   const [updateRows] = await connection.execute(
     updateQuery,
@@ -248,7 +268,7 @@ async function decryptTable(decryptID, centre) {
 
     // Update decrypted data into tbl_decrypt for the matching auditID
     await connection.execute(
-      `UPDATE ${config.api.tables.decrypt} SET auditTableID = ?,auditProtocolEndDatetime = ?, auditPreExistingDiabetes = ?, auditPreventableFactors = ?, auditCerebralOedemaConcern = ?, auditCerebralOedemaImaging = ?, auditCerebralOedemaTreatment = ?, auditServerDatetime = ?, auditClientUseragent = ?, auditClientIP = ?, auditAppVersion = ? WHERE auditID = ?`,
+      `UPDATE ${config.api.tables.decrypt} SET auditTableID = ?,auditProtocolEndDatetime = ?, auditPreExistingDiabetes = ?, auditPreventableFactors = ?, auditCerebralOedemaConcern = ?, auditCerebralOedemaImaging = ?, auditCerebralOedemaTreatment = ?, auditServerDatetime = ?, auditClientUseragent = ?, auditClientIP = ?, auditAppVersion = ?, auditEthnicGroup = ?, auditEthnicSubgroup = ?, auditImdDecile = ? WHERE auditID = ?`,
       [
         id,
         (decryptedObject.protocolEndDatetime ||
@@ -267,6 +287,9 @@ async function decryptTable(decryptID, centre) {
         clientUseragent,
         clientIP,
         appVersion,
+        decryptedObject.ethnicGroup ?? null,
+        decryptedObject.ethnicSubgroup ?? null,
+        decryptedObject.imdDecile ?? null,
         auditID,
       ]
     );
@@ -363,7 +386,7 @@ async function outputStreamlined() {
       }
 
       await connection.execute(
-        `INSERT INTO ${config.api.tables.decryptStreamlined} (patientNumber, auditID, protocolStartDatetime, auditProtocolEndDatetime, patientAge, patientSex, pH, bicarbonate, glucose, ketones, shockPresent, insulinRate, preExistingDiabetes, auditPreExistingDiabetes, insulinDeliveryMethod, ethnicGroup, ethnicSubgroup, preventableFactors, auditPreventableFactors, imdDecile, auditCerebralOedemaConcern, auditCerebralOedemaImaging, auditCerebralOedemaTreatment, region, centre, calculations, deduplicatedAuditIDs) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO ${config.api.tables.decryptStreamlined} (patientNumber, auditID, protocolStartDatetime, auditProtocolEndDatetime, patientAge, patientSex, pH, bicarbonate, glucose, ketones, shockPresent, insulinRate, preExistingDiabetes, auditPreExistingDiabetes, insulinDeliveryMethod, ethnicGroup, auditEthnicGroup, ethnicSubgroup, auditEthnicSubgroup, preventableFactors, auditPreventableFactors, imdDecile, auditImdDecile, auditCerebralOedemaConcern, auditCerebralOedemaImaging, auditCerebralOedemaTreatment, region, centre, calculations, deduplicatedAuditIDs) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           record.patientNumber,
           record.auditID,
@@ -381,10 +404,13 @@ async function outputStreamlined() {
           record.auditPreExistingDiabetes,
           record.insulinDeliveryMethod,
           record.ethnicGroup,
+          record.auditEthnicGroup,
           record.ethnicSubgroup,
+          record.auditEthnicSubgroup,
           record.preventableFactors,
           record.auditPreventableFactors,
           record.imdDecile,
+          record.auditImdDecile,
           record.auditCerebralOedemaConcern,
           record.auditCerebralOedemaImaging,
           record.auditCerebralOedemaTreatment,
