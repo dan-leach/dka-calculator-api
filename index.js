@@ -82,9 +82,6 @@ app.get("/config", (req, res) => {
       config.api.url = config.api.devUrl;
       config.client.url = config.client.devUrl;
       config.client.sodiumOsmoUrl = config.client.devSodiumOsmoUrl;
-      delete config.api.devUrl;
-      delete config.client.devUrl;
-      delete config.client.devSodiumOsmoUrl;
     }
 
     res.json(config);
