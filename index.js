@@ -78,6 +78,12 @@ app.get("/config", (req, res) => {
     config.api.lastUpdated = process.env.lastUpdated;
     config.api.underDevelopment = process.env.NODE_ENV === "development";
 
+    if (config.api.underDevelopment) {
+      config.api.url = config.api.devUrl;
+      config.client.url = config.client.devUrl;
+      config.client.sodiumOsmoUrl = config.client.devSodiumOsmoUrl;
+    }
+
     res.json(config);
   } catch (error) {
     handleError(
@@ -266,6 +272,8 @@ app.post("/calculate", calculateRules, validateRequest, async (req, res) => {
  *
  * @param {object} req - The request object containing query parameters.
  * @param {string} req.query.decryptID - The ID of the encrypted data to be decrypted.
+ * @param {string} req.query.centre - The centre associated with the data to be decrypted.
+ * @param {boolean} req.query.includeTests - Whether to include test data in the decryption process.
  * @param {object} res - The response object to send the decryption status.
  *
  * @returns {object} 200 - JSON object confirming decryption was attempted.
@@ -275,7 +283,7 @@ app.get("/decrypt", async (req, res) => {
   try {
     const { decrypt } = require("./modules/decrypt");
 
-    decrypt(req.query.decryptID);
+    decrypt(req.query.decryptID, req.query.centre, req.query.includeTests);
 
     res.json("Decrypt run");
   } catch (error) {
@@ -484,6 +492,7 @@ app.post("/update", updateRules, validateRequest, async (req, res) => {
     const { insertUpdateData } = require("./modules/insertData");
     const { checkID } = require("./modules/checkID");
     const { encrypt } = require("./modules/encrypt");
+    const { getImdDecile } = require("./modules/getImdDecile");
 
     //get the submitted data that passed validation
     const data = matchedData(req);
@@ -532,8 +541,14 @@ app.post("/update", updateRules, validateRequest, async (req, res) => {
     //get the IP address of the client request
     const clientIP = req.ip;
 
+    //get the imdDecile from the postcode
+    const imdDecile = await getImdDecile(data.patientPostcode);
+
     const encryptedData = encrypt({
-      protocolStartDatetime: data.protocolEndDatetime,
+      imdDecile,
+      ethnicGroup: data.ethnicGroup,
+      ethnicSubgroup: data.ethnicSubgroup,
+      protocolEndDatetime: data.protocolEndDatetime,
       preExistingDiabetes: data.preExistingDiabetes,
       preventableFactors: data.preventableFactors,
       cerebralOedema: {

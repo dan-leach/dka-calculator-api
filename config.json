@@ -23,18 +23,25 @@
       "changelog": "https://github.com/dan-leach/dka-calculator-api/wiki/Changelog"
     },
     "url": "https://api.dka-calculator.co.uk/",
+    "devUrl": "https://dev-api.dka-calculator.co.uk/",
     "timeoutDuration": 15000,
     "showConsole": true,
     "tables": {
       "calculate": "tbl_data_v2",
+      "calculateDev": "tbl_data_dev",
       "update": "tbl_update_v2",
+      "updateDev": "tbl_update_dev",
       "sodiumOsmo": "tbl_sodiumOsmo_v2",
-      "decrypt": "tbl_decrypt"
+      "sodiumOsmoDev": "tbl_sodiumOsmo_dev",
+      "decrypt": "tbl_decrypt",
+      "decryptStreamlined": "tbl_decrypt_streamlined"
     }
   },
   "client": {
     "url": "https://dka-calculator.co.uk",
+    "devUrl": "https://dev.dka-calculator.co.uk",
     "sodiumOsmoUrl": "https://dka-calculator.co.uk/sodium-osmo",
+    "devSodiumOsmoUrl": "https://dev.dka-calculator.co.uk/sodium-osmo",
     "repo": {
       "main": "https://github.com/dan-leach/dka-calculator",
       "changelog": "https://github.com/dan-leach/dka-calculator/wiki/Changelog",

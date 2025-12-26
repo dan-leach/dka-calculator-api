@@ -27,7 +27,11 @@ async function insertCalculateData(
 
     // Prepare SQL statement
     const sql = `
-      INSERT INTO ${config.api.tables.calculate} (
+      INSERT INTO ${
+        process.env.NODE_ENV === "development"
+          ? config.api.tables.calculateDev
+          : config.api.tables.calculate
+      } (
         retrospectiveEpisode, encryptedData, legalAgreement, episodeType, region, centre, auditID, patientHash, clientDatetime, clientUseragent, clientIP, appVersion) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
@@ -77,9 +81,13 @@ async function insertUpdateData(data, encryptedData, clientIP) {
     });
 
     // Prepare SQL statement for update
-    const sql = `INSERT INTO ${config.api.tables.update} (
-        encryptedData, auditID, clientUseragent, clientIP, appVersion
-      ) VALUES (?, ?, ?, ?, ?)
+    const sql = `INSERT INTO ${
+      process.env.NODE_ENV === "development"
+        ? config.api.tables.updateDev
+        : config.api.tables.update
+    } (
+        encryptedData, auditID, clientUseragent, clientIP, appVersion, auditRoute
+      ) VALUES (?, ?, ?, ?, ?, ?)
     `;
 
     // Execute SQL statement
@@ -89,11 +97,26 @@ async function insertUpdateData(data, encryptedData, clientIP) {
       data.clientUseragent,
       clientIP,
       data.appVersion,
+      data.auditRoute,
     ]);
 
     if (result.affectedRows === 0) {
       throw new Error("Audit data could not be updated: No rows affected");
     }
+
+    // Prepare SQL statement for update
+    const sql2 = `
+      UPDATE ${
+        process.env.NODE_ENV === "development"
+          ? config.api.tables.calculateDev
+          : config.api.tables.calculate
+      }
+      SET retrospectiveAuditData = ?
+      WHERE auditID = ?
+    `;
+
+    // Execute SQL statement
+    await connection.execute(sql2, [new Date(), data.auditID]);
   } catch (error) {
     throw new Error(`Audit data could not be updated: ${error.message}`);
   } finally {
@@ -122,7 +145,11 @@ async function insertHashData(patientHash, auditID) {
 
     // Prepare SQL statement for update
     const sql = `
-      UPDATE ${config.api.tables.calculate}
+      UPDATE ${
+        process.env.NODE_ENV === "development"
+          ? config.api.tables.calculateDev
+          : config.api.tables.calculate
+      }
       SET patientHash = ?, retrospectivePatientHash = ?
       WHERE auditID = ?
     `;
@@ -158,7 +185,11 @@ async function insertSodiumOsmoData(data, calculations, clientIP) {
     });
 
     // Prepare SQL statement for update
-    const sql = `INSERT INTO ${config.api.tables.sodiumOsmo} (
+    const sql = `INSERT INTO ${
+      process.env.NODE_ENV === "development"
+        ? config.api.tables.sodiumOsmoDev
+        : config.api.tables.sodiumOsmo
+    } (
         sodium, glucose, calculations, clientUseragent, clientIP, appVersion
       ) VALUES (?, ?, ?, ?, ?, ?)
     `;

@@ -402,6 +402,28 @@ const updateRules = [
     .isLength({ min: 64, max: 64 })
     .withMessage("Patient hash field must be exactly 64 characters in length."),
 
+  check("patientPostcode")
+    .optional()
+    .isAlphanumeric()
+    .withMessage(
+      "Patient postcode field must be data type [string], containing alphanumeric characters only."
+    )
+    .bail()
+    .matches(
+      /^([Gg][Ii][Rr] 0[Aa]{2})|((([A-Za-z][0-9]{1,2})|(([A-Za-z][A-Ha-hJ-Yj-y][0-9]{1,2})|(([A-Za-z][0-9][A-Za-z])|([A-Za-z][A-Ha-hJ-Yj-y][0-9][A-Za-z]?))))s?[0-9][A-Za-z]{2})$/
+    )
+    .withMessage("Patient postcode must be a valid UK postcode."),
+
+  check("ethnicGroup")
+    .isString()
+    .withMessage("Ethnic group field must be data type [string].")
+    .escape(),
+
+  check("ethnicSubgroup")
+    .isString()
+    .withMessage("Ethnic subgroup field must be data type [string].")
+    .escape(),
+
   check("protocolEndDatetime")
     .isISO8601() // Validates the input as an ISO 8601 date
     .withMessage("Protocol end datetime must be ISO8601 date format.")
@@ -496,6 +518,13 @@ const updateRules = [
   check("clientUseragent")
     .isString()
     .withMessage("Client useragent field must be data type [string].")
+    .escape(),
+
+  check("auditRoute")
+    .isAlpha()
+    .withMessage(
+      "Audit route field must be data type [string], containing only alphabetic characters."
+    )
     .escape(),
 ];
 
