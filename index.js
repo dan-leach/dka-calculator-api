@@ -283,7 +283,12 @@ app.get("/decrypt", async (req, res) => {
   try {
     const { decrypt } = require("./modules/decrypt");
 
-    decrypt(req.query.decryptID, req.query.centre, req.query.includeTests);
+    decrypt(
+      req.query.decryptID,
+      req.query.centre,
+      req.query.includeTests,
+      req.query.forceLiveTables
+    );
 
     res.json("Decrypt run");
   } catch (error) {

@@ -73,9 +73,10 @@ function decryptData(encryptedAESKey, encryptedData, iv, authTag) {
  *
  * @param {string} decryptID - The audit ID of the data to decrypt, or "all" to decrypt all records.
  * @param {string} centre - The centre to filter by, or "all" to include all centres.
+ * @param {boolean} forceLiveTables - Whether to force using live tables even in development environment.
  * @returns {Promise<void>} - Resolves when decryption and storage are complete.
  */
-async function decryptTable(decryptID, centre) {
+async function decryptTable(decryptID, centre, forceLiveTables) {
   const connection = await mysql.createConnection({
     host: "localhost",
     user: process.env.selectUser,
@@ -88,7 +89,7 @@ async function decryptTable(decryptID, centre) {
 
   // Fetch encrypted rows
   let query = `SELECT id, episodeType, auditID, retrospectivePatientHash, retrospectiveEpisode, appVersion, patientHash, legalAgreement, region, centre, clientDatetime, serverDatetime, clientUseragent, clientIP, encryptedData FROM ${
-    process.env.NODE_ENV === "development"
+    process.env.NODE_ENV === "development" && !forceLiveTables
       ? config.api.tables.calculateDev
       : config.api.tables.calculate
   }`;
@@ -205,20 +206,20 @@ async function decryptTable(decryptID, centre) {
   // Now handle update table
   const updateQuery = !decryptID
     ? `SELECT * FROM ${
-        process.env.NODE_ENV === "development"
+        process.env.NODE_ENV === "development" && !forceLiveTables
           ? config.api.tables.updateDev
           : config.api.tables.update
       } WHERE (auditID, serverDatetime) IN (SELECT auditID, MAX(serverDatetime) FROM ${
-        process.env.NODE_ENV === "development"
+        process.env.NODE_ENV === "development" && !forceLiveTables
           ? config.api.tables.updateDev
           : config.api.tables.update
       } GROUP BY auditID)`
     : `SELECT * FROM ${
-        process.env.NODE_ENV === "development"
+        process.env.NODE_ENV === "development" && !forceLiveTables
           ? config.api.tables.updateDev
           : config.api.tables.update
       } WHERE auditID = ? AND serverDatetime = (SELECT MAX(serverDatetime) FROM ${
-        process.env.NODE_ENV === "development"
+        process.env.NODE_ENV === "development" && !forceLiveTables
           ? config.api.tables.updateDev
           : config.api.tables.update
       } WHERE auditID = ?)`;
@@ -392,8 +393,9 @@ async function outputStreamlined(includeTests) {
       }
 
       await connection.execute(
-        `INSERT INTO ${config.api.tables.decryptStreamlined} (patientNumber, auditID, protocolStartDatetime, protocolEndDatetime, patientAge, patientSex, pH, bicarbonate, glucose, ketones, shockPresent, insulinRate, preExistingDiabetes, insulinDeliveryMethod, ethnicGroup, ethnicSubgroup, preventableFactors, imdDecile, cerebralOedemaConcern, cerebralOedemaImaging, cerebralOedemaTreatment, region, centre, calculations, deduplicatedAuditIDs) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO ${config.api.tables.decryptStreamlined} (dataGrade, patientNumber, auditID, protocolStartDatetime, protocolEndDatetime, patientAge, patientSex, pH, bicarbonate, glucose, ketones, shockPresent, insulinRate, preExistingDiabetes, insulinDeliveryMethod, ethnicGroup, ethnicSubgroup, preventableFactors, imdDecile, cerebralOedemaConcern, cerebralOedemaImaging, cerebralOedemaTreatment, region, centre, calculations, deduplicatedAuditIDs) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
+          record.auditTableID ? "A" : "B", // Data grade A if audit data exists, else B
           record.patientNumber,
           record.auditID,
           record.protocolStartDatetime,
@@ -435,8 +437,9 @@ async function outputStreamlined(includeTests) {
   // Insert all records with null patientNumber without grouping
   for (const record of nullPatientRows) {
     await connection.execute(
-      `INSERT INTO ${config.api.tables.decryptStreamlined} (auditID, protocolStartDatetime, patientAge, patientSex, pH, bicarbonate, glucose, ketones, shockPresent, insulinRate, preExistingDiabetes, insulinDeliveryMethod, ethnicGroup, ethnicSubgroup, preventableFactors, imdDecile, region, centre, calculations) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO ${config.api.tables.decryptStreamlined} (dataGrade, auditID, protocolStartDatetime, patientAge, patientSex, pH, bicarbonate, glucose, ketones, shockPresent, insulinRate, preExistingDiabetes, insulinDeliveryMethod, ethnicGroup, ethnicSubgroup, preventableFactors, imdDecile, region, centre, calculations) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
+        "C", // Data grade C as cannot deduplicate without patientHash
         record.auditID,
         record.protocolStartDatetime,
         record.patientAge,
@@ -470,17 +473,23 @@ async function outputStreamlined(includeTests) {
  * @param {string} decryptID - The audit ID to decrypt, or undefined for all records.
  * @param {boolean} includeTests - Whether to include test episodes in the streamlined output.
  * @param {string} centre - The centre to filter by, or undefined for all centres.
+ * @param {boolean} forceLiveTables - Whether to force using live tables even in development environment.
  */
-async function decrypt(decryptID, centre, includeTests) {
+async function decrypt(decryptID, centre, includeTests, forceLiveTables) {
   const decryptTime = new Date().toISOString();
   console.error(
     decryptTime,
-    "Decrypt.js running...",
+    "Decrypt.js running...     ",
+    "decryptID:",
     decryptID,
+    "centre:",
     centre,
-    includeTests
+    "includeTests:",
+    includeTests,
+    "forceLiveTables:",
+    forceLiveTables
   );
-  await decryptTable(decryptID, centre);
+  await decryptTable(decryptID, centre, forceLiveTables);
   await outputStreamlined(includeTests);
 }
 
