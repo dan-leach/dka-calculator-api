@@ -94,12 +94,12 @@ async function decryptTable(decryptID, centre) {
   }`;
   let params = [];
 
-  if (decryptID !== "all") {
+  if (decryptID) {
     query += " WHERE auditID = ?";
     params.push(decryptID);
   }
 
-  if (centre !== "all") {
+  if (centre) {
     query += (params.length > 0 ? " AND" : " WHERE") + " centre = ?";
     params.push(centre);
   }
@@ -203,30 +203,29 @@ async function decryptTable(decryptID, centre) {
   }
 
   // Now handle update table
-  const updateQuery =
-    decryptID === "all"
-      ? `SELECT * FROM ${
-          process.env.NODE_ENV === "development"
-            ? config.api.tables.updateDev
-            : config.api.tables.update
-        } WHERE (auditID, serverDatetime) IN (SELECT auditID, MAX(serverDatetime) FROM ${
-          process.env.NODE_ENV === "development"
-            ? config.api.tables.updateDev
-            : config.api.tables.update
-        } GROUP BY auditID)`
-      : `SELECT * FROM ${
-          process.env.NODE_ENV === "development"
-            ? config.api.tables.updateDev
-            : config.api.tables.update
-        } WHERE auditID = ? AND serverDatetime = (SELECT MAX(serverDatetime) FROM ${
-          process.env.NODE_ENV === "development"
-            ? config.api.tables.updateDev
-            : config.api.tables.update
-        } WHERE auditID = ?)`;
+  const updateQuery = !decryptID
+    ? `SELECT * FROM ${
+        process.env.NODE_ENV === "development"
+          ? config.api.tables.updateDev
+          : config.api.tables.update
+      } WHERE (auditID, serverDatetime) IN (SELECT auditID, MAX(serverDatetime) FROM ${
+        process.env.NODE_ENV === "development"
+          ? config.api.tables.updateDev
+          : config.api.tables.update
+      } GROUP BY auditID)`
+    : `SELECT * FROM ${
+        process.env.NODE_ENV === "development"
+          ? config.api.tables.updateDev
+          : config.api.tables.update
+      } WHERE auditID = ? AND serverDatetime = (SELECT MAX(serverDatetime) FROM ${
+        process.env.NODE_ENV === "development"
+          ? config.api.tables.updateDev
+          : config.api.tables.update
+      } WHERE auditID = ?)`;
 
   const [updateRows] = await connection.execute(
     updateQuery,
-    decryptID === "all" ? [] : [decryptID, decryptID]
+    !decryptID ? [] : [decryptID, decryptID]
   );
 
   for (const row of updateRows) {
@@ -312,7 +311,7 @@ async function decryptTable(decryptID, centre) {
  *
  * @returns {Promise<void>} - Resolves when the streamlined table is populated.
  */
-async function outputStreamlined() {
+async function outputStreamlined(includeTests) {
   const connection = await mysql.createConnection({
     host: "localhost",
     user: process.env.selectUser,
@@ -320,14 +319,21 @@ async function outputStreamlined() {
     database: "dkacalcu_dka_database",
   });
 
-  // Fetch all records with episodeType = 'real'
-  const [rows] = await connection.execute(
-    `SELECT * FROM ${config.api.tables.decrypt} WHERE episodeType = 'real'`
-  );
+  // Build query conditionally
+  let query = `SELECT * FROM ${config.api.tables.decrypt}`;
+  if (!includeTests) {
+    query += " WHERE episodeType = 'real'";
+  }
 
-  // Group by patientNumber
+  const [rows] = await connection.execute(query);
+
+  // Separate rows with null patientNumber
+  const nullPatientRows = rows.filter((row) => row.patientNumber === null);
+  const nonNullRows = rows.filter((row) => row.patientNumber !== null);
+
+  // Group by patientNumber for non-null
   const groups = {};
-  for (const row of rows) {
+  for (const row of nonNullRows) {
     const patientNumber = row.patientNumber;
     if (!groups[patientNumber]) {
       groups[patientNumber] = [];
@@ -386,7 +392,7 @@ async function outputStreamlined() {
       }
 
       await connection.execute(
-        `INSERT INTO ${config.api.tables.decryptStreamlined} (patientNumber, auditID, protocolStartDatetime, auditProtocolEndDatetime, patientAge, patientSex, pH, bicarbonate, glucose, ketones, shockPresent, insulinRate, preExistingDiabetes, auditPreExistingDiabetes, insulinDeliveryMethod, ethnicGroup, auditEthnicGroup, ethnicSubgroup, auditEthnicSubgroup, preventableFactors, auditPreventableFactors, imdDecile, auditImdDecile, auditCerebralOedemaConcern, auditCerebralOedemaImaging, auditCerebralOedemaTreatment, region, centre, calculations, deduplicatedAuditIDs) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO ${config.api.tables.decryptStreamlined} (patientNumber, auditID, protocolStartDatetime, protocolEndDatetime, patientAge, patientSex, pH, bicarbonate, glucose, ketones, shockPresent, insulinRate, preExistingDiabetes, insulinDeliveryMethod, ethnicGroup, ethnicSubgroup, preventableFactors, imdDecile, cerebralOedemaConcern, cerebralOedemaImaging, cerebralOedemaTreatment, region, centre, calculations, deduplicatedAuditIDs) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           record.patientNumber,
           record.auditID,
@@ -400,17 +406,20 @@ async function outputStreamlined() {
           record.ketones,
           record.shockPresent,
           record.insulinRate,
-          record.preExistingDiabetes,
-          record.auditPreExistingDiabetes,
+          record.auditPreExistingDiabetes
+            ? record.auditPreExistingDiabetes
+            : record.preExistingDiabetes,
           record.insulinDeliveryMethod,
-          record.ethnicGroup,
-          record.auditEthnicGroup,
-          record.ethnicSubgroup,
-          record.auditEthnicSubgroup,
-          record.preventableFactors,
-          record.auditPreventableFactors,
-          record.imdDecile,
-          record.auditImdDecile,
+          record.auditEthnicGroup
+            ? record.auditEthnicGroup
+            : record.ethnicGroup,
+          record.auditEthnicSubgroup
+            ? record.auditEthnicSubgroup
+            : record.ethnicSubgroup,
+          record.auditPreventableFactors
+            ? record.auditPreventableFactors
+            : record.preventableFactors,
+          record.auditImdDecile ? record.auditImdDecile : record.imdDecile,
           record.auditCerebralOedemaConcern,
           record.auditCerebralOedemaImaging,
           record.auditCerebralOedemaTreatment,
@@ -423,6 +432,34 @@ async function outputStreamlined() {
     }
   }
 
+  // Insert all records with null patientNumber without grouping
+  for (const record of nullPatientRows) {
+    await connection.execute(
+      `INSERT INTO ${config.api.tables.decryptStreamlined} (auditID, protocolStartDatetime, patientAge, patientSex, pH, bicarbonate, glucose, ketones, shockPresent, insulinRate, preExistingDiabetes, insulinDeliveryMethod, ethnicGroup, ethnicSubgroup, preventableFactors, imdDecile, region, centre, calculations) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        record.auditID,
+        record.protocolStartDatetime,
+        record.patientAge,
+        record.patientSex,
+        record.pH,
+        record.bicarbonate,
+        record.glucose,
+        record.ketones,
+        record.shockPresent,
+        record.insulinRate,
+        record.preExistingDiabetes,
+        record.insulinDeliveryMethod,
+        record.ethnicGroup,
+        record.ethnicSubgroup,
+        record.preventableFactors,
+        record.imdDecile,
+        record.region,
+        record.centre,
+        record.calculations,
+      ]
+    );
+  }
+
   await connection.end();
   console.log("Streamlined table populated successfully.");
 }
@@ -430,18 +467,21 @@ async function outputStreamlined() {
 /**
  * Handles the decryption process by calling decryptTable.
  *
- * @param {string} decryptID - The audit ID to decrypt, or "all" for all records.
- * @param {string} centre - The centre to filter by, or "all" for all centres.
- * @throws {Error} If no decryptID or no centre is provided.
+ * @param {string} decryptID - The audit ID to decrypt, or undefined for all records.
+ * @param {boolean} includeTests - Whether to include test episodes in the streamlined output.
+ * @param {string} centre - The centre to filter by, or undefined for all centres.
  */
-async function decrypt(decryptID, centre) {
-  if (!decryptID || !centre) {
-    throw new Error("No decryptID or no centre provided.");
-  }
-  const errorTime = new Date().toISOString();
-  console.error(errorTime, "Decrypt.js running...");
+async function decrypt(decryptID, centre, includeTests) {
+  const decryptTime = new Date().toISOString();
+  console.error(
+    decryptTime,
+    "Decrypt.js running...",
+    decryptID,
+    centre,
+    includeTests
+  );
   await decryptTable(decryptID, centre);
-  await outputStreamlined();
+  await outputStreamlined(includeTests);
 }
 
 module.exports = { decrypt };

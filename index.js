@@ -272,6 +272,8 @@ app.post("/calculate", calculateRules, validateRequest, async (req, res) => {
  *
  * @param {object} req - The request object containing query parameters.
  * @param {string} req.query.decryptID - The ID of the encrypted data to be decrypted.
+ * @param {string} req.query.centre - The centre associated with the data to be decrypted.
+ * @param {boolean} req.query.includeTests - Whether to include test data in the decryption process.
  * @param {object} res - The response object to send the decryption status.
  *
  * @returns {object} 200 - JSON object confirming decryption was attempted.
@@ -281,7 +283,7 @@ app.get("/decrypt", async (req, res) => {
   try {
     const { decrypt } = require("./modules/decrypt");
 
-    decrypt(req.query.decryptID, req.query.centre);
+    decrypt(req.query.decryptID, req.query.centre, req.query.includeTests);
 
     res.json("Decrypt run");
   } catch (error) {
