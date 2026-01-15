@@ -101,11 +101,15 @@ async function decryptTable(decryptID, centre, forceLiveTables) {
   }
 
   if (centre) {
-    query += (params.length > 0 ? " AND" : " WHERE") + " centre = ?";
-    params.push(centre);
+    query += (params.length > 0 ? " AND" : " WHERE") + " centre LIKE ?";
+    params.push(`%${centre}%`);
   }
 
+  console.error("Executing query:", query, "with params:", params);
+
   const [rows] = await connection.execute(query, params);
+
+  console.error(`Number of rows found: ${rows.length}`);
 
   for (const row of rows) {
     const {
@@ -477,6 +481,7 @@ async function outputStreamlined(includeTests) {
  */
 async function decrypt(decryptID, centre, includeTests, forceLiveTables) {
   const decryptTime = new Date().toISOString();
+  console.error("################################");
   console.error(
     decryptTime,
     "Decrypt.js running...     ",
@@ -491,6 +496,8 @@ async function decrypt(decryptID, centre, includeTests, forceLiveTables) {
   );
   await decryptTable(decryptID, centre, forceLiveTables);
   await outputStreamlined(includeTests);
+  console.error("Decryption process completed.");
+  console.error("################################");
 }
 
 module.exports = { decrypt };
